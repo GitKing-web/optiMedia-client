@@ -1,0 +1,275 @@
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import StatCard from '../components/dashboard/StatCard.vue'
+import SubscriptionItem from '../components/dashboard/SubscriptionItem.vue'
+import SpendingChart from '../components/dashboard/SpendingChart.vue'
+import HistoryTable from '../components/dashboard/HistoryTable.vue'
+import { useAuthStore } from '../stores/auth'
+import { useSubscriptionStore } from '../stores/subscription'
+import { useRouter } from 'vue-router'
+
+const authStore = useAuthStore()
+const subStore = useSubscriptionStore()
+const router = useRouter()
+
+const isSidebarOpen = ref(false)
+const selectedId = ref('')
+
+const activeAndPending = computed(() => subStore.activeSubscriptions)
+const selectedSub = computed(() => {
+    return activeAndPending.value.find(s => s.id === selectedId.value) || activeAndPending.value[0] || { bg: '' }
+})
+
+// Initialize selection if not set
+if (activeAndPending.value.length > 0 && !selectedId.value) {
+    selectedId.value = activeAndPending.value[0].id
+}
+
+const activities = ref([
+    { id: '1', type: 'payment' as const, service: 'Netflix Renewal', amount: '₦15,490', status: 'Completed', date: '2 days ago', icon: 'fa-solid fa-credit-card' },
+    { id: '2', type: 'subscription' as const, service: 'Spotify Family', amount: '₦16,990', status: 'Completed', date: '5 days ago', icon: 'fa-brands fa-spotify' },
+    { id: '4', type: 'subscription' as const, service: 'Disney+', amount: '₦7,990', status: 'Pending', date: 'Just now', icon: 'fa-solid fa-plus' },
+])
+
+const menuItems = [
+    { name: 'Dashboard', icon: 'fa-solid fa-grid-2', path: '/dashboard' },
+    { name: 'Subscriptions', icon: 'fa-solid fa-list-check', path: '/subscriptions' },
+    { name: 'Usage History', icon: 'fa-solid fa-chart-line', path: '#' },
+    { name: 'Settings', icon: 'fa-solid fa-gear', path: '#' },
+]
+
+function navigateTo(path: string) {
+    if (path !== '#') {
+        router.push(path)
+    }
+    isSidebarOpen.value = false
+}
+</script>
+
+<template>
+    <div class="min-h-screen bg-muted/30 flex relative">
+        <!-- Mobile Sidebar Overlay -->
+        <div v-if="isSidebarOpen" class="fixed inset-0 bg-secondary/60 backdrop-blur-sm z-[25] lg:hidden"
+            @click="isSidebarOpen = false"></div>
+
+        <!-- Sidebar -->
+        <aside
+            class="w-72 bg-white border-r border-secondary/5 flex flex-col p-8 fixed lg:sticky top-0 h-screen z-30 transition-transform duration-500 lg:translate-x-0"
+            :class="isSidebarOpen ? 'translate-x-0' : '-translate-x-full'">
+            <div class="flex items-center justify-between mb-12">
+                <div class="flex items-center gap-3">
+                    <img src="/images/logo.jpeg" alt="Logo" class="h-10 w-10 rounded-xl" />
+                    <span class="text-xl font-black tracking-tighter uppercase italic">OPTIMEDIA</span>
+                </div>
+                <button @click="isSidebarOpen = false" class="lg:hidden text-secondary/40 hover:text-secondary">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+
+            <nav class="flex-1 flex flex-col gap-2">
+                <div v-for="item in menuItems" :key="item.name" @click="navigateTo(item.path)"
+                    class="flex items-center gap-4 px-6 py-4 rounded-2xl cursor-pointer transition-all font-bold text-sm tracking-tight"
+                    :class="router.currentRoute.value.path === item.path ? 'bg-primary text-white shadow-xl shadow-primary/20' : 'text-secondary/40 hover:text-secondary hover:bg-muted'">
+                    <i :class="item.icon" class="text-lg"></i>
+                    {{ item.name }}
+                </div>
+            </nav>
+
+            <div class="mt-auto">
+                <div class="bg-secondary p-6 rounded-3xl text-white relative overflow-hidden group">
+                    <div
+                        class="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-150">
+                    </div>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Status</p>
+                    <h4 class="font-black text-lg mb-4">Pro Member</h4>
+                    <button
+                        class="w-full bg-white text-secondary py-3 rounded-xl font-black uppercase text-[10px] tracking-widest hover:brightness-110 active:scale-95 transition-all">
+                        Upgrade Plan
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-6 lg:p-10 relative overflow-hidden lg:overflow-visible">
+            <!-- Mobile Header Control -->
+            <div class="lg:hidden flex items-center justify-between mb-8 relative z-10">
+                <button @click="isSidebarOpen = true"
+                    class="h-10 w-10 rounded-xl bg-white shadow-sm flex items-center justify-center">
+                    <i class="fa-solid fa-bars-staggered"></i>
+                </button>
+                <img src="/images/logo.jpeg" alt="Logo" class="h-8 w-8 rounded-lg" />
+            </div>
+
+            <!-- Background Transitions (Only show if there are subs) -->
+            <div v-if="activeAndPending.length > 0" class="absolute inset-0 z-0 pointer-events-none">
+                <Transition name="bg-fade">
+                    <div :key="selectedSub.bg"
+                        class="absolute inset-0 bg-cover bg-center opacity-[0.3] transition-all duration-1000 scale-100 blur-xl grayscale-[0.05]"
+                        :style="{ backgroundImage: `url(${selectedSub.bg})` }"></div>
+                </Transition>
+                <div class="absolute inset-0 bg-gradient-to-br from-muted/5 via-transparent to-transparent"></div>
+            </div>
+
+            <header class="flex flex-col md:flex-row justify-between md:items-center gap-6 mb-12 relative z-10 px-1">
+                <div>
+                    <h1 class="text-3xl lg:text-4xl font-black text-secondary tracking-tight">Good morning, {{
+                        authStore.user?.name.split(' ')[0] || 'Alex' }}</h1>
+                    <p class="text-secondary/40 font-medium mt-1">Here's what's happening with your subscriptions today.
+                    </p>
+                </div>
+                <div class="flex items-center gap-4 lg:gap-6">
+                    <button
+                        class="h-12 w-12 rounded-2xl bg-white border border-secondary/5 flex items-center justify-center text-xl text-secondary/40 hover:text-primary transition-colors shadow-sm">
+                        <i class="fa-solid fa-bell"></i>
+                    </button>
+                    <div
+                        class="flex items-center gap-4 bg-white p-2 pr-6 rounded-2xl border border-secondary/5 shadow-sm">
+                        <div
+                            class="h-10 w-10 bg-secondary rounded-xl flex items-center justify-center text-sm font-bold text-white uppercase italic">
+                            {{ authStore.user?.name[0] || 'A' }}
+                        </div>
+                        <div class="hidden sm:block">
+                            <p class="font-black text-sm text-secondary">{{ authStore.user?.name || 'Alex K.' }}</p>
+                            <p class="text-[10px] font-bold text-primary uppercase tracking-widest">Pro Member</p>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 mb-12 relative z-10 px-1">
+                <StatCard title="Monthly Spend" value="₦18,490" change="-12% vs last month" :isPositive="true"
+                    icon="fa-solid fa-chart-line-up" color="primary" />
+                <StatCard title="Financial Health" value="Excellent" change="Very Good" :isPositive="true"
+                    icon="fa-solid fa-shield-heart" color="tertiary" />
+                <StatCard title="Active Services"
+                    :value="`${activeAndPending.filter(s => s.status === 'active').length} Services`"
+                    change="No changes" :isPositive="true" icon="fa-solid fa-layer-group" color="orange-500" />
+            </div>
+
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-8 relative z-10 px-1">
+                <!-- Left Column: Active Subs & Logic -->
+                <div class="xl:col-span-2 space-y-8">
+                    <!-- Active Subscriptions -->
+                    <div
+                        class="bg-white/40 backdrop-blur-md p-6 lg:p-8 rounded-[2.5rem] border border-white shadow-sm h-full">
+                        <div class="flex justify-between items-center mb-8">
+                            <h3 class="text-xl font-black text-secondary">Active Subscriptions</h3>
+                            <button @click="router.push('/subscriptions')"
+                                class="text-[10px] font-black uppercase tracking-widest text-primary hover:underline">Manage
+                                All</button>
+                        </div>
+
+                        <!-- Empty State -->
+                        <div v-if="activeAndPending.length === 0"
+                            class="flex flex-col items-center justify-center py-12 text-center">
+                            <div class="h-20 w-20 bg-muted rounded-[2rem] flex items-center justify-center mb-6">
+                                <i class="fa-solid fa-box-open text-3xl text-secondary/20"></i>
+                            </div>
+                            <h4 class="text-xl font-bold text-secondary mb-2">No active subscriptions</h4>
+                            <p class="text-secondary/40 text-sm max-w-xs mb-8">You haven't subscribed to any services
+                                yet. Start exploring our catalog.</p>
+                            <button @click="router.push('/subscriptions')"
+                                class="bg-primary text-white px-8 py-3 rounded-xl font-black uppercase text-xs tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-xl shadow-primary/30">
+                                Browse Services
+                            </button>
+                        </div>
+
+                        <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <SubscriptionItem v-for="sub in activeAndPending" :key="sub.id" v-bind="sub"
+                                :isActive="selectedId === sub.id" @select="selectedId = sub.id" />
+                            <div @click="router.push('/subscriptions')"
+                                class="flex items-center justify-center p-5 rounded-3xl border border-dashed border-secondary/20 hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer group h-full min-h-[84px]">
+                                <p
+                                    class="text-xs font-black uppercase tracking-widest text-secondary/40 group-hover:text-primary flex items-center gap-2 text-center">
+                                    <i class="fa-solid fa-plus-circle text-lg"></i>
+                                    Request New Service
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- History -->
+                    <HistoryTable :activities="activities" />
+                </div>
+
+                <!-- Right Column: Chart & Banner -->
+                <div class="space-y-8">
+                    <SpendingChart />
+
+                    <!-- Savings Banner -->
+                    <div class="bg-secondary rounded-[2.5rem] p-8 text-white relative overflow-hidden group shadow-2xl">
+                        <div
+                            class="absolute top-0 right-0 w-48 h-48 bg-primary/10 rounded-full blur-3xl -mr-24 -mt-24 group-hover:scale-150 transition-transform duration-1000">
+                        </div>
+
+                        <p class="text-[11px] font-black uppercase tracking-widest text-white/40 mb-1">Total Savings</p>
+                        <h2 class="text-3xl lg:text-4xl xl:text-5xl font-black mb-4 tracking-tighter">
+                            ₦1,240,000 <span class="text-tertiary text-sm align-top ml-2"><i
+                                    class="fa-solid fa-arrow-trend-up"></i> +15%</span>
+                        </h2>
+                        <p class="text-sm text-white/50 leading-relaxed max-w-[240px] mb-8 font-medium">
+                            You've saved enough to pay for 3 years of Netflix Premium. Great job, {{
+                                authStore.user?.name.split(' ')[0] || 'Alex' }}!
+                        </p>
+
+                        <div class="space-y-4">
+                            <div
+                                class="flex justify-between items-end text-[10px] uppercase font-black tracking-widest">
+                                <span class="text-white/40">Goal: ₦1,500,000</span>
+                                <span>82% Reached</span>
+                            </div>
+                            <div class="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                                <div
+                                    class="h-full bg-tertiary w-[82%] rounded-full shadow-[0_0_15px_rgba(16,185,129,0.5)]">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</template>
+
+<style scoped>
+.bg-fade-enter-active,
+.bg-fade-leave-active {
+    transition: opacity 1.5s ease, transform 1.5s ease;
+}
+
+.bg-fade-enter-from {
+    opacity: 0;
+    transform: scale(1.2);
+}
+
+.bg-fade-leave-to {
+    opacity: 0;
+}
+
+/* Custom shadow for StatCard colors */
+.bg-primary\/10 {
+    background-color: rgba(99, 102, 241, 0.1);
+}
+
+.text-primary {
+    color: #6366f1;
+}
+
+.bg-tertiary\/10 {
+    background-color: rgba(16, 185, 129, 0.1);
+}
+
+.text-tertiary {
+    color: #10b981;
+}
+
+.bg-orange-500\/10 {
+    background-color: rgba(249, 115, 22, 0.1);
+}
+
+.text-orange-500 {
+    color: #f97316;
+}
+</style>
