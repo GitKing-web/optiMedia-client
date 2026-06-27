@@ -3,13 +3,14 @@ import { ref, onMounted, onUnmounted } from 'vue'
 
 const props = defineProps<{
     name: string
-    price: string
-    status: 'active' | 'pending' | 'expired'
+    price: number
+    status: 'active' | 'pending' | 'expired' | 'canceled'
     icon: string
     activeDate?: string // ISO string when it became active
     durationDays?: number
     isActive: boolean
 }>()
+
 
 const countdown = ref('')
 let timer: any = null

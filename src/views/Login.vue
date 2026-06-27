@@ -169,8 +169,8 @@ function handleLogin() {
                     </div>
 
                     <!-- Submit Button -->
-                    <button type="submit"
-                        class="w-full bg-primary text-white py-4 rounded-xl font-black uppercase tracking-widest hover:brightness-110 active:scale-[0.98] transition-all shadow-xl shadow-primary/30 mt-4 h-14 flex items-center justify-center gap-3 group">
+                    <button type="submit" :disabled="!isFormValid"
+                        class="w-full bg-primary text-white py-4 rounded-xl font-black uppercase tracking-widest hover:brightness-110 active:scale-[0.98] transition-all shadow-xl shadow-primary/30 mt-4 h-14 flex items-center justify-center gap-3 group disabled:opacity-50 disabled:cursor-not-allowed">
                         Sign In
                         <i class="fa-solid fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
                     </button>
