@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
 
 const pricingPlans = [
     {
@@ -75,7 +78,7 @@ function toggleFaq(index: number) {
                             class="w-36 h-36 rounded-[2.5rem] border-4 border-white/10" />
                     </div>
                 </div>
-                <h1 class="text-7xl md:text-[8rem] font-black tracking-tighter mb-10 leading-[0.8]">
+                <h1 class="text-5xl sm:text-7xl md:text-[8rem] font-black tracking-tighter mb-10 leading-[0.8]">
                     PREMIUM FOR <br />
                     <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary to-tertiary italic">LESS
                         THE PRICE.</span>
@@ -87,7 +90,7 @@ function toggleFaq(index: number) {
                     at local NGN rates.
                 </p>
                 <div class="flex flex-col sm:flex-row gap-8 justify-center items-center">
-                    <button
+                    <button @click="router.push('/login')"
                         class="bg-primary text-white px-12 py-6 rounded-2xl text-xl font-black uppercase tracking-[0.2em] hover:scale-105 active:scale-95 transition-all shadow-3xl shadow-primary/40 group flex items-center gap-4">
                         Get Started
                         <i class="fa-solid fa-arrow-right group-hover:translate-x-2 transition-transform"></i>
@@ -237,7 +240,7 @@ function toggleFaq(index: number) {
                             </li>
                         </ul>
 
-                        <button
+                        <button @click="router.push('/login')"
                             class="w-full py-6 rounded-3xl font-black uppercase tracking-[0.2em] text-sm transition-all shadow-lg"
                             :class="plan.popular ? 'bg-primary text-white shadow-2xl shadow-primary/30 hover:brightness-110 active:scale-95' : 'bg-muted text-secondary hover:bg-secondary hover:text-white'">
                             {{ plan.cta }}

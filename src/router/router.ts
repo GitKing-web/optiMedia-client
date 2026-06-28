@@ -9,7 +9,20 @@ const routes = [
     {
         path: '/subscriptions',
         name: 'Subscriptions',
-        component: () => import('../views/Subscriptions.vue')
+        component: () => import('../views/Subscriptions.vue'),
+        meta: { hideNavbar: true, hideFooter: true }
+    },
+    {
+        path: '/subscriptions/:name',
+        name: 'SubscriptionDetail',
+        component: () => import('../views/SubscriptionDetail.vue'),
+        meta: { hideNavbar: true, hideFooter: true }
+    },
+    {
+        path: '/admin',
+        name: 'AdminDashboard',
+        component: () => import('../views/AdminDashboard.vue'),
+        meta: { hideNavbar: true, hideFooter: true }
     },
     {
         path: '/login',

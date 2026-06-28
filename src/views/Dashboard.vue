@@ -2,7 +2,6 @@
 import { ref, computed } from 'vue'
 import StatCard from '../components/dashboard/StatCard.vue'
 import SubscriptionItem from '../components/dashboard/SubscriptionItem.vue'
-import SpendingChart from '../components/dashboard/SpendingChart.vue'
 import HistoryTable from '../components/dashboard/HistoryTable.vue'
 import { useAuthStore } from '../stores/auth'
 import { useSubscriptionStore } from '../stores/subscription'
@@ -196,37 +195,7 @@ function navigateTo(path: string) {
 
                 <!-- Right Column: Chart & Banner -->
                 <div class="space-y-8">
-                    <SpendingChart />
 
-                    <!-- Savings Banner -->
-                    <div class="bg-secondary rounded-[2.5rem] p-8 text-white relative overflow-hidden group shadow-2xl">
-                        <div
-                            class="absolute top-0 right-0 w-48 h-48 bg-primary/10 rounded-full blur-3xl -mr-24 -mt-24 group-hover:scale-150 transition-transform duration-1000">
-                        </div>
-
-                        <p class="text-[11px] font-black uppercase tracking-widest text-white/40 mb-1">Total Savings</p>
-                        <h2 class="text-3xl lg:text-4xl xl:text-5xl font-black mb-4 tracking-tighter">
-                            ₦1,240,000 <span class="text-tertiary text-sm align-top ml-2"><i
-                                    class="fa-solid fa-arrow-trend-up"></i> +15%</span>
-                        </h2>
-                        <p class="text-sm text-white/50 leading-relaxed max-w-[240px] mb-8 font-medium">
-                            You've saved enough to pay for 3 years of Netflix Premium. Great job, {{
-                                authStore.user?.name.split(' ')[0] || 'Alex' }}!
-                        </p>
-
-                        <div class="space-y-4">
-                            <div
-                                class="flex justify-between items-end text-[10px] uppercase font-black tracking-widest">
-                                <span class="text-white/40">Goal: ₦1,500,000</span>
-                                <span>82% Reached</span>
-                            </div>
-                            <div class="h-2 w-full bg-white/5 rounded-full overflow-hidden">
-                                <div
-                                    class="h-full bg-tertiary w-[82%] rounded-full shadow-[0_0_15px_rgba(16,185,129,0.5)]">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
         </main>
