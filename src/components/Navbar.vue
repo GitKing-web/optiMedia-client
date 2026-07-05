@@ -17,8 +17,8 @@ function toggleMenu() {
         <!-- Logo -->
         <div class="flex items-center gap-3">
             <img src="/images/logo.jpeg" alt="optiMedia Logo"
-                class="h-10 w-10 object-contain rounded-lg shadow-lg border border-white/10" />
-            <span class="text-2xl font-black tracking-tighter uppercase italic">OPTIMEDIA SOLUTIONS</span>
+                class="h-8 w-8 sm:h-10 sm:w-10 object-contain rounded-lg shadow-lg border border-white/10" />
+            <span class="text-xl sm:text-2xl font-black tracking-tighter uppercase italic">OPTIMEDIA SOLUTIONS</span>
         </div>
 
         <!-- Desktop Navigation -->
@@ -67,19 +67,19 @@ function toggleMenu() {
                     class="absolute right-0 top-0 h-screen w-80 bg-secondary border-l border-white/10 shadow-4xl flex flex-col p-10 pt-32 gap-10 animate-slide-in">
                     <div class="flex flex-col gap-8">
                         <RouterLink to="/" @click="isMenuOpen = false"
-                            class="text-2xl font-black uppercase tracking-widest hover:text-primary transition-all flex items-center gap-4"
+                            class="text-xl sm:text-2xl font-black uppercase tracking-widest hover:text-primary transition-all flex items-center gap-4"
                             active-class="text-primary">
-                            <i class="fa-solid fa-house text-xl opacity-50"></i>
+                            <i class="fa-solid fa-house text-lg sm:text-lg sm:text-xl opacity-50"></i>
                             Home
                         </RouterLink>
                         <a href="#about" @click="isMenuOpen = false"
-                            class="text-2xl font-black uppercase tracking-widest hover:text-primary transition-all flex items-center gap-4 text-white/70">
-                            <i class="fa-solid fa-circle-info text-xl opacity-50"></i>
+                            class="text-xl sm:text-2xl font-black uppercase tracking-widest hover:text-primary transition-all flex items-center gap-4 text-white/70">
+                            <i class="fa-solid fa-circle-info text-lg sm:text-xl opacity-50"></i>
                             About
                         </a>
                         <a href="#contact" @click="isMenuOpen = false"
-                            class="text-2xl font-black uppercase tracking-widest hover:text-primary transition-all flex items-center gap-4 text-white/70">
-                            <i class="fa-solid fa-envelope text-xl opacity-50"></i>
+                            class="text-xl sm:text-2xl font-black uppercase tracking-widest hover:text-primary transition-all flex items-center gap-4 text-white/70">
+                            <i class="fa-solid fa-envelope text-lg sm:text-xl opacity-50"></i>
                             Contact Us
                         </a>
                     </div>
@@ -87,12 +87,12 @@ function toggleMenu() {
                     <div class="mt-auto pb-10 border-t border-white/10 pt-10">
                         <button v-if="authStore.isAuthenticated"
                             class="w-full flex items-center gap-3 bg-white/10 px-6 py-4 rounded-2xl hover:bg-white/20 transition-all border border-white/10">
-                            <i class="fa-solid fa-user text-2xl"></i>
-                            <span class="text-lg font-black uppercase tracking-widest">{{ authStore.user?.name ||
+                            <i class="fa-solid fa-user text-xl sm:text-2xl"></i>
+                            <span class="text-base sm:text-lg font-black uppercase tracking-widest">{{ authStore.user?.name ||
                                 'Profile' }}</span>
                         </button>
                         <RouterLink v-else to="/login" @click="isMenuOpen = false"
-                            class="w-full bg-primary text-white px-8 py-4 rounded-2xl font-black uppercase text-lg tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-3xl shadow-primary/40 text-center">
+                            class="w-full bg-primary text-white px-8 py-4 rounded-2xl font-black uppercase text-base sm:text-lg tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-3xl shadow-primary/40 text-center">
                             Sign In
                         </RouterLink>
                     </div>

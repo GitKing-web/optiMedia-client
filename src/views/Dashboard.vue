@@ -47,13 +47,11 @@ function navigateTo(path: string) {
 
 <template>
     <div class="min-h-screen bg-muted/30 flex relative">
-        <!-- Mobile Sidebar Overlay -->
         <div v-if="isSidebarOpen" class="fixed inset-0 bg-secondary/60 backdrop-blur-sm z-[25] lg:hidden"
             @click="isSidebarOpen = false"></div>
 
-        <!-- Sidebar -->
         <aside
-            class="w-72 bg-white border-r border-secondary/5 flex flex-col p-8 fixed lg:sticky top-0 h-screen z-30 transition-transform duration-500 lg:translate-x-0"
+            class="w-72 bg-white border-r border-secondary/5 flex flex-col p-8 fixed inset-y-0 left-0 h-screen z-30 transition-transform duration-500 lg:sticky lg:translate-x-0"
             :class="isSidebarOpen ? 'translate-x-0' : '-translate-x-full'">
             <div class="flex items-center justify-between mb-12">
                 <div class="flex items-center gap-3">
@@ -89,18 +87,15 @@ function navigateTo(path: string) {
             </div>
         </aside>
 
-        <!-- Main Content -->
-        <main class="flex-1 p-6 lg:p-10 relative overflow-hidden lg:overflow-visible">
-            <!-- Mobile Header Control -->
+        <main class="flex-1 p-4 sm:p-6 lg:p-10 relative overflow-hidden lg:overflow-visible">
             <div class="lg:hidden flex items-center justify-between mb-8 relative z-10">
                 <button @click="isSidebarOpen = true"
-                    class="h-10 w-10 rounded-xl bg-white shadow-sm flex items-center justify-center">
+                    class="h-10 w-10 rounded-xl bg-white shadow-sm flex items-center justify-center border border-secondary/5">
                     <i class="fa-solid fa-bars-staggered"></i>
                 </button>
                 <img src="/images/logo.jpeg" alt="Logo" class="h-8 w-8 rounded-lg" />
             </div>
 
-            <!-- Background Transitions (Only show if there are subs) -->
             <div v-if="activeAndPending.length > 0" class="absolute inset-0 z-0 pointer-events-none">
                 <Transition name="bg-fade">
                     <div :key="selectedSub.bg"
@@ -112,23 +107,22 @@ function navigateTo(path: string) {
 
             <header class="flex flex-col md:flex-row justify-between md:items-center gap-6 mb-12 relative z-10 px-1">
                 <div>
-                    <h1 class="text-3xl lg:text-4xl font-black text-secondary tracking-tight">Good morning, {{
+                    <h1 class="text-2xl sm:text-3xl lg:text-4xl font-black text-secondary tracking-tight">Good morning, {{
                         authStore.user?.name.split(' ')[0] || 'Alex' }}</h1>
-                    <p class="text-secondary/40 font-medium mt-1">Here's what's happening with your subscriptions today.
-                    </p>
+                    <p class="text-secondary/40 text-sm sm:text-base font-medium mt-1">Here's what's happening with your subscriptions today.</p>
                 </div>
-                <div class="flex items-center gap-4 lg:gap-6">
+                <div class="flex items-center justify-between sm:justify-end gap-4 lg:gap-6">
                     <button
                         class="h-12 w-12 rounded-2xl bg-white border border-secondary/5 flex items-center justify-center text-xl text-secondary/40 hover:text-primary transition-colors shadow-sm">
                         <i class="fa-solid fa-bell"></i>
                     </button>
                     <div
-                        class="flex items-center gap-4 bg-white p-2 pr-6 rounded-2xl border border-secondary/5 shadow-sm">
+                        class="flex items-center gap-4 bg-white p-2 pr-4 sm:pr-6 rounded-2xl border border-secondary/5 shadow-sm">
                         <div
                             class="h-10 w-10 bg-secondary rounded-xl flex items-center justify-center text-sm font-bold text-white uppercase italic">
                             {{ authStore.user?.name[0] || 'A' }}
                         </div>
-                        <div class="hidden sm:block">
+                        <div>
                             <p class="font-black text-sm text-secondary">{{ authStore.user?.name || 'Alex K.' }}</p>
                             <p class="text-[10px] font-bold text-primary uppercase tracking-widest">Pro Member</p>
                         </div>
@@ -136,8 +130,7 @@ function navigateTo(path: string) {
                 </div>
             </header>
 
-            <!-- Stats Grid -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 mb-12 relative z-10 px-1">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 mb-12 relative z-10 px-1">
                 <StatCard title="Monthly Spend" value="₦18,490" change="-12% vs last month" :isPositive="true"
                     icon="fa-solid fa-chart-line-up" color="primary" />
                 <StatCard title="Financial Health" value="Excellent" change="Very Good" :isPositive="true"
@@ -148,40 +141,35 @@ function navigateTo(path: string) {
             </div>
 
             <div class="grid grid-cols-1 xl:grid-cols-3 gap-8 relative z-10 px-1">
-                <!-- Left Column: Active Subs & Logic -->
                 <div class="xl:col-span-2 space-y-8">
-                    <!-- Active Subscriptions -->
                     <div
-                        class="bg-white/40 backdrop-blur-md p-6 lg:p-8 rounded-[2.5rem] border border-white shadow-sm h-full">
+                        class="bg-white/40 backdrop-blur-md p-4 sm:p-6 lg:p-8 rounded-[1.8rem] sm:rounded-[2.5rem] border border-white shadow-sm h-full">
                         <div class="flex justify-between items-center mb-8">
-                            <h3 class="text-xl font-black text-secondary">Active Subscriptions</h3>
+                            <h3 class="text-lg sm:text-xl font-black text-secondary">Active Subscriptions</h3>
                             <button @click="router.push('/subscriptions')"
-                                class="text-[10px] font-black uppercase tracking-widest text-primary hover:underline">Manage
-                                All</button>
+                                class="text-[10px] font-black uppercase tracking-widest text-primary hover:underline">Manage All</button>
                         </div>
 
-                        <!-- Empty State -->
                         <div v-if="activeAndPending.length === 0"
-                            class="flex flex-col items-center justify-center py-12 text-center">
-                            <div class="h-20 w-20 bg-muted rounded-[2rem] flex items-center justify-center mb-6">
-                                <i class="fa-solid fa-box-open text-3xl text-secondary/20"></i>
+                            class="flex flex-col items-center justify-center py-12 text-center px-4">
+                            <div class="h-16 w-16 sm:h-20 sm:w-20 bg-muted rounded-2xl sm:rounded-[2rem] flex items-center justify-center mb-6">
+                                <i class="fa-solid fa-box-open text-2xl sm:text-3xl text-secondary/20"></i>
                             </div>
-                            <h4 class="text-xl font-bold text-secondary mb-2">No active subscriptions</h4>
-                            <p class="text-secondary/40 text-sm max-w-xs mb-8">You haven't subscribed to any services
-                                yet. Start exploring our catalog.</p>
+                            <h4 class="text-lg sm:text-xl font-bold text-secondary mb-2">No active subscriptions</h4>
+                            <p class="text-secondary/40 text-xs sm:text-sm max-w-xs mb-8">You haven't subscribed to any services yet. Start exploring our catalog.</p>
                             <button @click="router.push('/subscriptions')"
-                                class="bg-primary text-white px-8 py-3 rounded-xl font-black uppercase text-xs tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-xl shadow-primary/30">
+                                class="w-full sm:w-auto bg-primary text-white px-8 py-3 rounded-xl font-black uppercase text-xs tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-xl shadow-primary/30">
                                 Browse Services
                             </button>
                         </div>
 
-                        <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <SubscriptionItem v-for="sub in activeAndPending" :key="sub.id" v-bind="sub"
                                 :isActive="selectedId === sub.id" @select="selectedId = sub.id" />
                             <div @click="router.push('/subscriptions')"
                                 class="flex items-center justify-center p-5 rounded-3xl border border-dashed border-secondary/20 hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer group h-full min-h-[84px]">
                                 <p
-                                    class="text-xs font-black uppercase tracking-widest text-secondary/40 group-hover:text-primary flex items-center gap-2 text-center">
+                                    class="text-xs font-black uppercase tracking-widest text-secondary/40 group-hover:text-primary flex items-center justify-center gap-2 text-center">
                                     <i class="fa-solid fa-plus-circle text-lg"></i>
                                     Request New Service
                                 </p>
@@ -189,14 +177,10 @@ function navigateTo(path: string) {
                         </div>
                     </div>
 
-                    <!-- History -->
                     <HistoryTable :activities="activities" />
                 </div>
 
-                <!-- Right Column: Chart & Banner -->
-                <div class="space-y-8">
-
-                </div>
+                <div class="space-y-8"></div>
             </div>
         </main>
     </div>
@@ -217,7 +201,6 @@ function navigateTo(path: string) {
     opacity: 0;
 }
 
-/* Custom shadow for StatCard colors */
 .bg-primary\/10 {
     background-color: rgba(99, 102, 241, 0.1);
 }
