@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
+const authStore = useAuthStore()
 
 const name = ref('')
 const email = ref('')
@@ -20,6 +22,7 @@ const errors = ref({
     confirmPassword: '',
     terms: ''
 })
+const submitError = ref('')
 
 const isFormValid = computed(() => {
     return name.value.length >= 3 &&
@@ -30,7 +33,8 @@ const isFormValid = computed(() => {
         agreeTerms.value
 })
 
-function handleRegister() {
+async function handleRegister() {
+    submitError.value = ''
     // Reset errors
     errors.value = {
         name: '',
@@ -69,10 +73,18 @@ function handleRegister() {
     }
 
     if (!hasError) {
-        console.log('Registering...', { name: name.value, email: email.value, whatsapp: whatsapp.value })
-        // Simulate registration
-        alert('Registration successful! (Demo)')
-        router.push('/login')
+        try {
+            await authStore.register({
+                name: name.value,
+                email: email.value,
+                whatsapp: whatsapp.value,
+                password: password.value
+            })
+
+            router.push('/dashboard')
+        } catch {
+            submitError.value = authStore.authError || 'Registration failed'
+        }
     }
 }
 </script>
@@ -146,6 +158,8 @@ function handleRegister() {
                     <h2 class="text-3xl font-black text-secondary mb-2">Create your account</h2>
                     <p class="text-secondary/60">Start your journey with full marketplace access.</p>
                 </div>
+
+                <p v-if="submitError" class="mb-6 text-sm font-semibold text-red-500">{{ submitError }}</p>
 
                 <form @submit.prevent="handleRegister" class="space-y-5">
                     <!-- Full Name -->

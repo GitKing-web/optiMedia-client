@@ -1,8 +1,11 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import { apiFetch, ApiError } from '../lib/api'
+import { useAuthStore } from './auth'
 
 export interface Subscription {
     id: string
+    serviceId: string
     name: string
     status: 'active' | 'expired' | 'canceled' | 'pending'
     price: number
@@ -11,59 +14,190 @@ export interface Subscription {
     bg: string
     activeDate?: string
     durationDays?: number
+    service?: {
+        id: string
+        slug: string
+        name: string
+        price: number
+        icon: string
+        bg: string
+        description: string
+        features: string[]
+    } | null
 }
 
 export interface Service {
     id: string
+    slug: string
     name: string
     price: number
     icon: string
     bg: string
     description: string
+    features: string[]
+}
+
+interface DashboardResponse {
+    profile: unknown
+    metrics: {
+        monthlySpend: number
+        activeServices: number
+        pendingRequests: number
+        financialHealth: string
+    }
+    subscriptions: Array<{
+        id: string
+        serviceId: string
+        name?: string
+        status: 'active' | 'expired' | 'canceled' | 'pending'
+        price: number
+        icon: string
+        bg: string
+        activeDate?: string
+        durationDays?: number
+        nextBilling?: string
+        service?: Service | null
+    }>
+    activities: Array<{
+        id: string
+        type: 'payment' | 'subscription'
+        service: string
+        amount: string
+        status: string
+        date: string
+        icon: string
+    }>
+    services: Service[]
+}
+
+interface ServicesResponse {
+    services: Service[]
+}
+
+interface RequestSubscriptionResponse {
+    message: string
+    subscription: Subscription
 }
 
 export const useSubscriptionStore = defineStore('subscription', () => {
+    const authStore = useAuthStore()
     const activeSubscriptions = ref<Subscription[]>([])
+    const availableServices = ref<Service[]>([])
+    const activities = ref<DashboardResponse['activities']>([])
+    const metrics = ref<DashboardResponse['metrics'] | null>(null)
+    const isLoading = ref(false)
+    const error = ref<string | null>(null)
 
-    const availableServices = ref<Service[]>([
-        { id: '1', name: 'Netflix Premium', price: 2500, icon: 'fa-solid fa-play', bg: '/images/backgrounds/netflix.jpg', description: '4K Ultra HD + HDR, 4 screens. Official Account, Full Warranty, Instant Activation.' },
-        { id: '2', name: 'Spotify Premium', price: 1000, icon: 'fa-brands fa-spotify', bg: '/images/backgrounds/spotify.jpg', description: 'Ad-free music, 6 accounts. Your Own Account, High Quality Audio, Offline Playback.' },
-        { id: '3', name: 'Amazon Prime', price: 2000, icon: 'fa-brands fa-amazon', bg: '/images/backgrounds/amazon.jpg', description: 'Prime Video + Free Delivery. Global Access, No Ads on Video, Exclusive Originals.' },
-        { id: '4', name: 'YouTube Premium', price: 1500, icon: 'fa-brands fa-youtube', bg: '/images/backgrounds/ytMusic.jpg', description: 'Ad-free YouTube and Music. Background Play, Downloads, and Official Activation.' },
-        { id: '5', name: 'Apple Music', price: 1000, icon: 'fa-brands fa-apple', bg: '/images/backgrounds/appleMusic.jpg', description: 'Lossless audio, spatial audio. Your Own Account, High Quality Audio, Official Activation.' }
-    ])
+    const activeAndPending = computed(() => activeSubscriptions.value)
 
-    function requestSubscription(service: Service) {
-        // Avoid duplicates in active/pending
-        if (activeSubscriptions.value.find(s => s.name === service.name)) return
-
-        const newSub: Subscription = {
-            id: Math.random().toString(36).substr(2, 9),
-            name: service.name,
-            status: 'pending',
-            price: service.price,
-            icon: service.icon,
-            bg: service.bg
+    function mapSubscription(subscription: DashboardResponse['subscriptions'][number]): Subscription {
+        return {
+            id: subscription.id,
+            serviceId: subscription.serviceId,
+            name: subscription.service?.name || subscription.name || 'Unknown Service',
+            status: subscription.status,
+            price: subscription.price,
+            nextBilling: subscription.nextBilling,
+            icon: subscription.icon,
+            bg: subscription.bg,
+            activeDate: subscription.activeDate,
+            durationDays: subscription.durationDays,
+            service: subscription.service || null
         }
-        activeSubscriptions.value.push(newSub)
     }
 
-    // Helper for demo: Toggle status
-    function toggleStatus(id: string) {
-        const sub = activeSubscriptions.value.find(s => s.id === id)
-        if (sub) {
-            sub.status = sub.status === 'pending' ? 'active' : 'pending'
-            if (sub.status === 'active') {
-                sub.activeDate = new Date().toISOString()
-                sub.durationDays = 30
-            }
+    async function fetchServices() {
+        const response = await apiFetch<ServicesResponse>('/api/services')
+        availableServices.value = response.services
+        return response.services
+    }
+
+    async function fetchDashboard() {
+        if (!authStore.token) {
+            activeSubscriptions.value = []
+            activities.value = []
+            metrics.value = null
+            return null
         }
+
+        isLoading.value = true
+        error.value = null
+
+        try {
+            const response = await apiFetch<DashboardResponse>('/api/dashboard', {
+                authToken: authStore.token
+            })
+
+            metrics.value = response.metrics
+            activities.value = response.activities
+            activeSubscriptions.value = response.subscriptions.map(mapSubscription)
+            availableServices.value = response.services
+            return response
+        } catch (caughtError) {
+            if (caughtError instanceof ApiError) {
+                error.value = caughtError.message
+            } else {
+                error.value = 'Unable to load subscription data'
+            }
+            throw caughtError
+        } finally {
+            isLoading.value = false
+        }
+    }
+
+    async function fetchSubscriptions() {
+        if (!authStore.token) {
+            activeSubscriptions.value = []
+            return []
+        }
+
+        const response = await apiFetch<{ subscriptions: DashboardResponse['subscriptions'] }>('/api/subscriptions', {
+            authToken: authStore.token
+        })
+
+        activeSubscriptions.value = response.subscriptions.map(mapSubscription)
+        return activeSubscriptions.value
+    }
+
+    async function requestSubscription(service: Service) {
+        if (!authStore.token) {
+            throw new Error('You must be logged in to request a subscription')
+        }
+
+        const response = await apiFetch<RequestSubscriptionResponse>('/api/subscriptions/request', {
+            method: 'POST',
+            authToken: authStore.token,
+            body: JSON.stringify({ serviceId: service.id })
+        })
+
+        const mapped = mapSubscription(response.subscription)
+        const existingIndex = activeSubscriptions.value.findIndex((item) => item.id === mapped.id)
+
+        if (existingIndex >= 0) {
+            activeSubscriptions.value[existingIndex] = mapped
+        } else {
+            activeSubscriptions.value.unshift(mapped)
+        }
+
+        return mapped
+    }
+
+    async function refreshAll() {
+        await Promise.all([fetchServices(), fetchDashboard()])
     }
 
     return {
         activeSubscriptions,
+        activeAndPending,
         availableServices,
+        activities,
+        metrics,
+        isLoading,
+        error,
+        fetchServices,
+        fetchDashboard,
+        fetchSubscriptions,
         requestSubscription,
-        toggleStatus
+        refreshAll
     }
 })

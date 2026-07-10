@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSubscriptionStore } from '../stores/subscription'
 
@@ -20,12 +20,24 @@ const matchedService = computed(() => {
     })
 })
 
-function handleSubscribe() {
+onMounted(() => {
+    if (subStore.availableServices.length === 0) {
+        subStore.fetchServices().catch(() => {
+            // The subscription page will still fall back gracefully if needed.
+        })
+    }
+})
+
+async function handleSubscribe() {
     if (!matchedService.value) return
 
-    subStore.requestSubscription(matchedService.value)
-    alert(`Request for ${matchedService.value.name} sent! It will show as pending on your dashboard.`)
-    router.push('/dashboard')
+    try {
+        await subStore.requestSubscription(matchedService.value)
+        alert(`Request for ${matchedService.value.name} sent! It will show as pending on your dashboard.`)
+        router.push('/dashboard')
+    } catch {
+        alert('Unable to create request right now.')
+    }
 }
 </script>
 

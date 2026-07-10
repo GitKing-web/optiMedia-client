@@ -1,9 +1,16 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { useSubscriptionStore } from '../stores/subscription'
 import { useRouter } from 'vue-router'
 
 const subStore = useSubscriptionStore()
 const router = useRouter()
+
+onMounted(() => {
+    subStore.fetchServices().catch(() => {
+        // Page can still render once dashboard data arrives elsewhere.
+    })
+})
 
 function getSlug(name: string) {
     if (name.toLowerCase().includes('netflix')) return 'netflix'

@@ -1,7 +1,15 @@
-import express from 'express'
-const PORT = process.env.PORT || 3000;
-const app = express()
+import app from './src/app.ts'
+import { seedDatabase } from './src/data/seed.ts'
 
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`)
-})
+const PORT = Number(process.env.PORT || 3000)
+
+try {
+  await seedDatabase()
+
+  app.listen(PORT, () => {
+    console.log(`server running on port ${PORT}`)
+  })
+} catch (error) {
+  console.error(error)
+  process.exit(1)
+}

@@ -3,15 +3,25 @@ import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import Navbar from './components/Navbar.vue'
 import LoadingScreen from './components/LoadingScreen.vue'
+import { useAuthStore } from './stores/auth'
 
 const route = useRoute()
 const isLoading = ref(true)
+const authStore = useAuthStore()
 
-onMounted(() => {
+onMounted(async () => {
   // Simulate initial load for smooth transition
   setTimeout(() => {
     isLoading.value = false
   }, 1500)
+
+  if (authStore.token && !authStore.isHydrated) {
+    try {
+      await authStore.fetchCurrentUser()
+    } catch {
+      // Session will be cleared by the store if invalid.
+    }
+  }
 })
 </script>
 

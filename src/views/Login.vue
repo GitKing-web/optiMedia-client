@@ -15,12 +15,14 @@ const errors = ref({
     identifier: '',
     password: ''
 })
+const submitError = ref('')
 
 const isFormValid = computed(() => {
     return identifier.value.length > 0 && password.value.length >= 6
 })
 
-function handleLogin() {
+async function handleLogin() {
+    submitError.value = ''
     errors.value = {
         identifier: '',
         password: ''
@@ -38,17 +40,12 @@ function handleLogin() {
     }
 
     if (!hasError) {
-        console.log('Logging in...', { identifier: identifier.value })
-        // Simulate login
-        authStore.login('demo-token')
-        authStore.setUser({
-            id: '1',
-            name: 'John Doe',
-            email: identifier.value.includes('@') ? identifier.value : 'john@example.com'
-        })
-
-        alert('Login successful! (Demo)')
-        router.push('/dashboard')
+        try {
+            await authStore.login(identifier.value, password.value)
+            router.push('/dashboard')
+        } catch {
+            submitError.value = authStore.authError || 'Login failed'
+        }
     }
 }
 </script>
@@ -119,6 +116,8 @@ function handleLogin() {
                     <h2 class="text-3xl font-black text-secondary mb-2">Login to OptiMedia Solutions</h2>
                     <p class="text-secondary/60">Enter your credentials to access your account.</p>
                 </div>
+
+                <p v-if="submitError" class="mb-6 text-sm font-semibold text-red-500">{{ submitError }}</p>
 
                 <form @submit.prevent="handleLogin" class="space-y-6">
                     <!-- Identifier (Email or WhatsApp) -->
