@@ -160,7 +160,7 @@ function toggleFaq(index: number) {
 
                     <div class="grid grid-cols-1 gap-8 sm:gap-12">
                         <div
-                            class="bg-card p-6 sm:p-10 rounded-[2rem] sm:rounded-[3rem] border border-muted shadow-sm lg:hover:translate-x-4 transition-all duration-500">
+                            class="bg-card p-6 sm:p-10 rounded-4xl sm:rounded-[3rem] border border-muted shadow-sm lg:hover:translate-x-4 transition-all duration-500">
                             <div class="flex items-center gap-4 sm:gap-6 mb-6 sm:mb-8">
                                 <img src="/images/ads/ad1.jpeg" class="w-16 h-16 sm:w-24 sm:h-24 rounded-2xl object-cover grayscale" />
                                 <h4 class="text-xl sm:text-2xl font-black uppercase italic text-secondary">The Noise</h4>
@@ -170,7 +170,7 @@ function toggleFaq(index: number) {
                             </p>
                         </div>
                         <div
-                            class="bg-card p-6 sm:p-10 rounded-[2rem] sm:rounded-[3rem] border border-muted shadow-sm lg:hover:translate-x-4 transition-all duration-500">
+                            class="bg-card p-6 sm:p-10 rounded-4xl sm:rounded-[3rem] border border-muted shadow-sm lg:hover:translate-x-4 transition-all duration-500">
                             <div class="flex items-center gap-4 sm:gap-6 mb-6 sm:mb-8">
                                 <img src="/images/ads/ad2.jpeg" class="w-16 h-16 sm:w-24 sm:h-24 rounded-2xl object-cover grayscale" />
                                 <h4 class="text-xl sm:text-2xl font-black uppercase italic text-secondary">The Privacy</h4>
@@ -195,7 +195,7 @@ function toggleFaq(index: number) {
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-12 max-w-7xl mx-auto pt-4 md:pt-0">
                     <div v-for="plan in pricingPlans" :key="plan.name"
                         class="relative bg-card p-6 sm:p-12 rounded-[2.5rem] sm:rounded-[4rem] border-2 transition-all duration-700 lg:hover:-translate-y-6 hover:shadow-4xl"
-                        :class="plan.popular ? 'border-primary ring-[8px] sm:ring-[12px] ring-primary/5 shadow-3xl shadow-primary/20 scale-100 md:scale-105 z-10 my-6 md:my-0' : 'border-muted'">
+                        :class="plan.popular ? 'border-primary ring-8 sm:ring-12px ring-primary/5 shadow-3xl shadow-primary/20 scale-100 md:scale-105 z-10 my-6 md:my-0' : 'border-muted'">
                         <div v-if="plan.popular"
                             class="absolute -top-5 left-1/2 -translate-x-1/2 bg-primary text-white px-6 sm:px-10 py-2 sm:py-3 rounded-full text-[10px] sm:text-xs font-black tracking-[0.3em] uppercase shadow-2xl whitespace-nowrap">
                             BEST SELLER
@@ -203,7 +203,7 @@ function toggleFaq(index: number) {
 
                         <div class="mb-8 sm:mb-12">
                             <div
-                                class="w-16 h-16 sm:w-20 sm:h-20 bg-secondary text-white rounded-xl sm:rounded-[2rem] flex items-center justify-center mb-6 sm:mb-8 shadow-2xl ring-4 ring-white/5">
+                                class="w-16 h-16 sm:w-20 sm:h-20 bg-secondary text-white rounded-xl sm:rounded-4xl flex items-center justify-center mb-6 sm:mb-8 shadow-2xl ring-4 ring-white/5">
                                 <i :class="plan.icon" class="text-2xl sm:text-4xl"
                                     :style="{ color: plan.popular ? 'var(--primary)' : 'white' }"></i>
                             </div>

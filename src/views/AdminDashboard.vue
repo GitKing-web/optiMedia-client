@@ -189,25 +189,25 @@ onUnmounted(() => {
             </header>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-12">
-                <div class="bg-black/20 p-6 sm:p-8 rounded-[1.8rem] sm:rounded-[2rem] border border-white/5 relative overflow-hidden group shadow-lg">
+                <div class="bg-black/20 p-6 sm:p-8 rounded-[1.8rem] sm:rounded-4xl border border-white/5 relative overflow-hidden group shadow-lg">
                     <p class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Total Users</p>
                     <h3 class="text-3xl sm:text-4xl font-black">{{ totalUsersCount }}</h3>
                 </div>
-                <div class="bg-black/20 p-6 sm:p-8 rounded-[1.8rem] sm:rounded-[2rem] border border-white/5 relative overflow-hidden group shadow-lg">
+                <div class="bg-black/20 p-6 sm:p-8 rounded-[1.8rem] sm:rounded-4xl border border-white/5 relative overflow-hidden group shadow-lg">
                     <p class="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Pending Subs</p>
                     <h3 class="text-3xl sm:text-4xl font-black text-primary">{{ pendingCount }}</h3>
                 </div>
-                <div class="bg-black/20 p-6 sm:p-8 rounded-[1.8rem] sm:rounded-[2rem] border border-white/5 relative overflow-hidden group shadow-lg">
+                <div class="bg-black/20 p-6 sm:p-8 rounded-[1.8rem] sm:rounded-4xl border border-white/5 relative overflow-hidden group shadow-lg">
                     <p class="text-[10px] font-black uppercase tracking-widest text-emerald-400 mb-1">Active Users</p>
                     <h3 class="text-3xl sm:text-4xl font-black text-emerald-400">{{ activeCount }}</h3>
                 </div>
-                <div class="bg-black/20 p-6 sm:p-8 rounded-[1.8rem] sm:rounded-[2rem] border border-white/5 relative overflow-hidden group shadow-lg">
+                <div class="bg-black/20 p-6 sm:p-8 rounded-[1.8rem] sm:rounded-4xl border border-white/5 relative overflow-hidden group shadow-lg">
                     <p class="text-[10px] font-black uppercase tracking-widest text-red-400 mb-1">Expiring in 10d</p>
                     <h3 class="text-3xl sm:text-4xl font-black text-red-400">{{ expiringCount }}</h3>
                 </div>
             </div>
 
-            <div class="flex-1 bg-black/20 rounded-[2rem] sm:rounded-[2.5rem] border border-white/5 p-4 sm:p-6 lg:p-10 flex flex-col">
+            <div class="flex-1 bg-black/20 rounded-4xl sm:rounded-[2.5rem] border border-white/5 p-4 sm:p-6 lg:p-10 flex flex-col">
                 <div class="flex flex-wrap gap-2 sm:gap-4 mb-8">
                     <button @click="activeTab = 'all'"
                         class="px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all"
