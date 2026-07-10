@@ -3,6 +3,7 @@ import cors from 'cors'
 import dotenv from 'dotenv'
 import authRoutes from './routes/auth.routes.ts'
 import catalogRoutes from './routes/catalog.routes.ts'
+import paymentRoutes from './routes/payment.routes.ts'
 import subscriptionRoutes from './routes/subscription.routes.ts'
 import adminRoutes from './routes/admin.routes.ts'
 
@@ -11,7 +12,13 @@ dotenv.config()
 const app = express()
 
 app.use(cors())
-app.use(express.json())
+app.use(
+  express.json({
+    verify: (req, _res, buffer) => {
+      ;(req as express.Request & { rawBody?: Buffer }).rawBody = Buffer.from(buffer)
+    },
+  }),
+)
 
 app.get('/health', (_req, res) => {
   res.json({
@@ -23,6 +30,7 @@ app.get('/health', (_req, res) => {
 app.use('/api', catalogRoutes)
 app.use('/api/auth', authRoutes)
 app.use('/api', subscriptionRoutes)
+app.use('/api', paymentRoutes)
 app.use('/api/admin', adminRoutes)
 
 app.use((_req, res) => {

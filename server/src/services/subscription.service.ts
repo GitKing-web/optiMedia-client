@@ -100,6 +100,30 @@ export async function buildDashboard(user: AuthUser) {
 }
 
 export async function requestSubscription(user: AuthUser, service: Service) {
+  const created = await createPendingSubscription(user, service)
+  if ('error' in created) {
+    return created
+  }
+
+  await prisma.activity.create({
+    data: {
+      id: createId('act'),
+      userId: user.id,
+      type: 'subscription',
+      service: `${service.name} Request`,
+      amount: money(service.price),
+      status: 'Pending',
+      date: 'Just now',
+      icon: service.icon,
+    },
+  })
+
+  return {
+    subscription: created,
+  }
+}
+
+export async function createPendingSubscription(user: AuthUser, service: Service) {
   const existingSubscription = await prisma.subscription.findFirst({
     where: {
       userId: user.id,
@@ -109,7 +133,9 @@ export async function requestSubscription(user: AuthUser, service: Service) {
   })
 
   if (existingSubscription) {
-    return { error: 'You already have a pending or active request for this service' }
+    return {
+      error: 'You already have a pending or active request for this service',
+    }
   }
 
   const subscription = await prisma.subscription.create({
@@ -123,19 +149,6 @@ export async function requestSubscription(user: AuthUser, service: Service) {
       bg: service.bg,
     },
     include: { service: true },
-  })
-
-  await prisma.activity.create({
-    data: {
-      id: createId('act'),
-      userId: user.id,
-      type: 'subscription',
-      service: `${service.name} Request`,
-      amount: money(service.price),
-      status: 'Pending',
-      date: 'Just now',
-      icon: service.icon,
-    },
   })
 
   return {

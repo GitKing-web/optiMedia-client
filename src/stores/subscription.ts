@@ -79,6 +79,22 @@ interface RequestSubscriptionResponse {
     subscription: Subscription
 }
 
+interface PaystackInitializationResponse {
+    message: string
+    authorizationUrl: string
+    reference: string
+}
+
+interface PaystackVerificationResponse {
+    message: string
+    subscription?: Subscription
+    payment?: {
+        reference: string
+        status: string
+        amount: number
+    }
+}
+
 export const useSubscriptionStore = defineStore('subscription', () => {
     const authStore = useAuthStore()
     const activeSubscriptions = ref<Subscription[]>([])
@@ -182,6 +198,31 @@ export const useSubscriptionStore = defineStore('subscription', () => {
         return mapped
     }
 
+    async function initializePaystackCheckout(service: Service) {
+        if (!authStore.token) {
+            throw new Error('You must be logged in to continue')
+        }
+
+        return apiFetch<PaystackInitializationResponse>('/api/payments/paystack/initialize', {
+            method: 'POST',
+            authToken: authStore.token,
+            body: JSON.stringify({ serviceId: service.id })
+        })
+    }
+
+    async function verifyPaystackCheckout(reference: string) {
+        if (!authStore.token) {
+            throw new Error('You must be logged in to continue')
+        }
+
+        const response = await apiFetch<PaystackVerificationResponse>(`/api/payments/paystack/verify/${reference}`, {
+            authToken: authStore.token
+        })
+
+        await refreshAll().catch(() => null)
+        return response
+    }
+
     async function refreshAll() {
         await Promise.all([fetchServices(), fetchDashboard()])
     }
@@ -198,6 +239,8 @@ export const useSubscriptionStore = defineStore('subscription', () => {
         fetchDashboard,
         fetchSubscriptions,
         requestSubscription,
+        initializePaystackCheckout,
+        verifyPaystackCheckout,
         refreshAll
     }
 })

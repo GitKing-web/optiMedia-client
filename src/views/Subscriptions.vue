@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
-import { useSubscriptionStore } from '../stores/subscription'
 import { useRouter } from 'vue-router'
+import { useSubscriptionStore } from '../stores/subscription'
 
 const subStore = useSubscriptionStore()
 const router = useRouter()
@@ -29,11 +29,12 @@ function handleSelect(name: string) {
 
 <template>
     <div class="w-full min-h-screen bg-secondary text-white flex flex-col justify-start px-4 sm:px-8 py-6 lg:p-0">
-        
         <header class="flex justify-between items-center mb-6 sm:mb-10">
             <div class="w-full">
-                <button @click="router.push('/dashboard')"
-                    class="text-[10px] font-black uppercase tracking-widest text-primary hover:underline flex items-center gap-2 mb-3 cursor-pointer">
+                <button
+                    @click="router.push('/dashboard')"
+                    class="text-[10px] font-black uppercase tracking-widest text-primary hover:underline flex items-center gap-2 mb-3 cursor-pointer"
+                >
                     <i class="fa-solid fa-arrow-left"></i>
                     Back to Dashboard
                 </button>
@@ -47,9 +48,12 @@ function handleSelect(name: string) {
         </header>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 pb-12">
-            <div v-for="service in subStore.availableServices" :key="service.id" @click="handleSelect(service.name)"
-                class="group relative bg-black/10 backdrop-blur-md p-5 sm:p-8 lg:p-10 rounded-3xl sm:rounded-4xl border border-white/5 hover:border-primary/20 transition-all duration-500 cursor-pointer flex flex-col justify-between shadow-sm hover:shadow-2xl lg:hover:-translate-y-1.5 overflow-hidden">
-                
+            <div
+                v-for="service in subStore.availableServices"
+                :key="service.id"
+                @click="handleSelect(service.name)"
+                class="group relative bg-black/10 backdrop-blur-md p-5 sm:p-8 lg:p-10 rounded-3xl sm:rounded-4xl border border-white/5 hover:border-primary/20 transition-all duration-500 cursor-pointer flex flex-col justify-between shadow-sm hover:shadow-2xl lg:hover:-translate-y-1.5 overflow-hidden"
+            >
                 <div class="hidden lg:block absolute -right-16 -top-16 w-36 h-36 bg-primary/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
 
                 <div class="flex flex-col flex-1">
@@ -81,10 +85,4 @@ function handleSelect(name: string) {
             </div>
         </div>
     </div>
-<<<<<<< HEAD
 </template>
-
-<style scoped></style>
-=======
-</template>
->>>>>>> 6562128ef360ec30ebd304f9fb9f02e7fabfa6f3

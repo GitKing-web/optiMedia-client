@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 
 const routes = [
     {
@@ -62,34 +63,35 @@ const routes = [
 
 const router = createRouter({
     history: createWebHistory(),
-    routes,
+    routes
 })
 
-// Global Session Guards Logic
-// router.beforeEach((to, from, next) => {
-//     const token = localStorage.getItem('token');
-//     const user = JSON.parse(localStorage.getItem('user') || '{}');
+router.beforeEach(async (to) => {
+    const authStore = useAuthStore()
+    const needsAuth = to.matched.some((record) => record.meta.requiresAuth)
+    const needsAdmin = to.matched.some((record) => record.meta.requiresAdmin)
+    const guestOnly = to.matched.some((record) => record.meta.guestOnly)
 
-//     // Prevent authorized user instances from hitting guest landing pages
-//     if (to.meta.guestOnly || to.path === '/') {
-//         if (token) {
-//             return next('/dashboard')
-//         }
-//     }
+    if (!authStore.isHydrated && authStore.token) {
+        try {
+            await authStore.fetchCurrentUser()
+        } catch {
+        }
+    }
 
-//     // Traverse the complete routing record match path array to catch parent auth requirements
-//     if (to.matched.some(record => record.meta.requiresAuth) && !token) {
-//         return next('/login');
-//     }
+    if (guestOnly && authStore.isAuthenticated) {
+        return '/dashboard'
+    }
 
-//     // Isolate administration clearance parameters
-//     if (to.matched.some(record => record.meta.requiresAdmin)) {
-//         if (!token || !user.isAdmin) {
-//             return next('/dashboard');
-//         }
-//     }
-    
-//     next();
-// })
+    if (needsAuth && !authStore.isAuthenticated) {
+        return '/login'
+    }
+
+    if (needsAdmin && !authStore.isAdmin) {
+        return '/dashboard'
+    }
+
+    return true
+})
 
 export default router

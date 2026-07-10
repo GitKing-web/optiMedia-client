@@ -76,6 +76,10 @@ export interface AuthenticatedRequest extends Request {
   auth?: JwtPayload
 }
 
+export interface RawBodyRequest extends Request {
+  rawBody?: Buffer
+}
+
 export interface RegisterBody {
   name?: string
   email?: string

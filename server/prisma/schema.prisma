@@ -28,6 +28,12 @@ enum ActivityStatus {
   Pending
 }
 
+enum PaymentStatus {
+  pending
+  success
+  failed
+}
+
 model User {
   id           String         @id @default(cuid())
   name         String
@@ -40,6 +46,7 @@ model User {
   updatedAt    DateTime       @updatedAt
   subscriptions Subscription[]
   activities   Activity[]
+  payments     Payment[]
 }
 
 model Service {
@@ -54,6 +61,7 @@ model Service {
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
   subscriptions Subscription[]
+  payments     Payment[]
 }
 
 model Subscription {
@@ -72,11 +80,37 @@ model Subscription {
 
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  payments Payment[]
 
   @@index([userId])
   @@index([serviceId])
   @@index([status])
   @@unique([userId, serviceId])
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  userId            String
+  serviceId         String
+  subscriptionId    String?
+  reference         String        @unique
+  gateway           String        @default("paystack")
+  amount            Int
+  status            PaymentStatus @default(pending)
+  authorizationUrl  String?
+  accessCode        String?
+  paystackResponse  Json?
+  paidAt            DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  service     Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([serviceId])
+  @@index([status])
 }
 
 model Activity {
