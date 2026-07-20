@@ -38,6 +38,18 @@ const routes = [
         meta: { hideNavbar: true, hideFooter: true, guestOnly: true }
     },
     {
+        path: '/forgot-password',
+        name: 'ForgotPassword',
+        component: () => import('../views/ForgotPassword.vue'),
+        meta: { hideNavbar: true, hideFooter: true }
+    },
+    {
+        path: '/reset-password',
+        name: 'ResetPassword',
+        component: () => import('../views/ResetPassword.vue'),
+        meta: { hideNavbar: true, hideFooter: true }
+    },
+    {
         path: '/dashboard',
         component: () => import('../views/Dashboard.vue'),
         meta: { hideNavbar: true, hideFooter: true, requiresAuth: true },

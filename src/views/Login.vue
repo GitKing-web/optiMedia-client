@@ -141,9 +141,9 @@ async function handleLogin() {
                         <div class="flex justify-between items-center mb-2 px-1">
                             <label
                                 class="text-[10px] font-black uppercase tracking-widest text-secondary/60">Password</label>
-                            <a href="#"
+                            <RouterLink to="/forgot-password"
                                 class="text-[10px] font-black uppercase tracking-widest text-primary hover:underline">Forgot
-                                password?</a>
+                                password?</RouterLink>
                         </div>
                         <div class="relative">
                             <i class="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-secondary/30"></i>

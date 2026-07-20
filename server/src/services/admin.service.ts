@@ -1,6 +1,6 @@
 import { prisma } from '../db/prisma.ts'
 import { money } from '../utils.ts'
-import type { AdminRow, AuthUser } from '../types.ts'
+import type { AdminRow } from '../types.ts'
 
 function daysRemaining(expireDate?: Date | null) {
   if (!expireDate) return 0

@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto'
+import { createHmac, randomUUID } from 'node:crypto'
 import { type Prisma } from '@prisma/client'
 import { prisma } from '../db/prisma.ts'
 import { findAuthUserById } from './auth.service.ts'
@@ -129,7 +129,36 @@ async function finalizeSuccessfulPayment(paymentReference: string, transaction: 
       return created
     }
 
-    subscription = created.subscription
+    subscription = created.subscription as unknown as typeof subscription
+  }
+
+  await prisma.activity.create({
+    data: {
+      id: createId('act'),
+      userId: user.id,
+      type: 'payment',
+      service: `${service.name} Payment`,
+      amount: money(service.price),
+      status: 'Completed',
+      date: 'Just now',
+      icon: service.icon,
+    },
+  })
+
+  const updatedPayment = await prisma.payment.update({
+    where: { reference: paymentReference },
+    data: {
+      status: 'success',
+      paidAt: transaction.paid_at ? new Date(transaction.paid_at) : new Date(),
+      subscriptionId: subscription.id,
+      paystackResponse: transaction as Prisma.InputJsonValue,
+    },
+  })
+
+  return {
+    message: 'Payment verified successfully',
+    payment: updatedPayment,
+    subscription,
   }
 
   await prisma.activity.create({

@@ -1,13 +1,19 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
+const router = useRouter()
 const authStore = useAuthStore()
 const isMenuOpen = ref(false)
 
 function toggleMenu() {
     isMenuOpen.value = !isMenuOpen.value
+}
+
+async function handleLogout() {
+    await authStore.logout()
+    router.push('/')
 }
 </script>
 
@@ -40,11 +46,17 @@ function toggleMenu() {
 
         <!-- Desktop Action Button -->
         <div class="hidden md:flex items-center gap-4">
-            <button v-if="authStore.isAuthenticated"
-                class="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-lg hover:bg-white/20 transition-all border border-white/10">
-                <i class="fa-solid fa-user text-lg"></i>
-                <span class="text-sm font-bold uppercase tracking-widest">{{ authStore.user?.name || 'Profile' }}</span>
-            </button>
+            <div v-if="authStore.isAuthenticated" class="flex items-center gap-2">
+                <button
+                    class="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-lg hover:bg-white/20 transition-all border border-white/10">
+                    <i class="fa-solid fa-user text-lg"></i>
+                    <span class="text-sm font-bold uppercase tracking-widest">{{ authStore.user?.name || 'Profile' }}</span>
+                </button>
+                <button @click="handleLogout"
+                    class="bg-red-500/10 text-red-400 px-3 py-1.5 rounded-lg hover:bg-red-500/20 transition-all border border-red-500/10 text-sm font-bold uppercase tracking-widest">
+                    Logout
+                </button>
+            </div>
             <RouterLink v-else to="/login"
                 class="bg-primary text-white px-8 py-2.5 rounded-xl font-black uppercase text-sm tracking-widest hover:brightness-111 active:scale-95 transition-all shadow-lg shadow-primary/30">
                 Sign In
@@ -85,12 +97,19 @@ function toggleMenu() {
                     </div>
 
                     <div class="mt-auto pb-10 border-t border-white/10 pt-10">
-                        <button v-if="authStore.isAuthenticated"
-                            class="w-full flex items-center gap-3 bg-white/10 px-6 py-4 rounded-2xl hover:bg-white/20 transition-all border border-white/10">
-                            <i class="fa-solid fa-user text-xl sm:text-2xl"></i>
-                            <span class="text-base sm:text-lg font-black uppercase tracking-widest">{{ authStore.user?.name ||
-                                'Profile' }}</span>
-                        </button>
+                        <div v-if="authStore.isAuthenticated" class="space-y-2">
+                            <button
+                                class="w-full flex items-center gap-3 bg-white/10 px-6 py-4 rounded-2xl hover:bg-white/20 transition-all border border-white/10">
+                                <i class="fa-solid fa-user text-xl sm:text-2xl"></i>
+                                <span class="text-base sm:text-lg font-black uppercase tracking-widest">{{ authStore.user?.name ||
+                                    'Profile' }}</span>
+                            </button>
+                            <button @click="handleLogout"
+                                class="w-full flex items-center gap-3 bg-red-500/10 px-6 py-4 rounded-2xl hover:bg-red-500/20 transition-all border border-red-500/10">
+                                <i class="fa-solid fa-right-from-bracket text-xl sm:text-2xl"></i>
+                                <span class="text-base sm:text-lg font-black uppercase tracking-widest">Logout</span>
+                            </button>
+                        </div>
                         <RouterLink v-else to="/login" @click="isMenuOpen = false"
                             class="w-full bg-primary text-white px-8 py-4 rounded-2xl font-black uppercase text-base sm:text-lg tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-3xl shadow-primary/40 text-center">
                             Sign In

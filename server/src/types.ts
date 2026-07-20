@@ -12,7 +12,7 @@ export interface AuthUser {
   whatsapp: string
   passwordHash: string
   role: Role
-  avatar?: string
+  avatar: string | null
 }
 
 export interface Service {
@@ -34,11 +34,11 @@ export interface Subscription {
   price: number
   icon: string
   bg: string
-  activeDate?: string
-  durationDays?: number
-  nextBilling?: string
-  createdAt: string
-  updatedAt: string
+  activeDate: Date | null
+  durationDays: number | null
+  nextBilling: Date | null
+  createdAt: Date
+  updatedAt: Date
 }
 
 export interface AdminRow {

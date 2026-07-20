@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 
+const authStore = useAuthStore()
 const router = useRouter()
 const route = useRoute()
 
@@ -11,6 +13,11 @@ const isMobileNavOpen = ref(false)
 const navigateTo = (path: string) => {
     isMobileNavOpen.value = false
     router.push(path)
+}
+
+async function handleLogout() {
+    await authStore.logout()
+    router.push('/')
 }
 
 watch(() => route.path, () => {
@@ -88,7 +95,7 @@ watch(() => route.path, () => {
                 </button>
             </nav>
 
-            <div class="mt-auto pt-6 border-t border-white/5">
+            <div class="mt-auto pt-6 border-t border-white/5 space-y-2">
                 <div class="bg-black/30 border border-white/5 rounded-2xl p-5 relative overflow-hidden">
                     <p class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Status</p>
                     <h4 class="text-base font-black text-white italic mb-4">Pro Member</h4>
@@ -96,6 +103,11 @@ watch(() => route.path, () => {
                         Upgrade Plan
                     </button>
                 </div>
+                <button @click="handleLogout"
+                    class="w-full flex items-center gap-3 px-5 py-3.5 rounded-2xl font-bold text-sm tracking-tight text-red-400/60 hover:text-red-400 hover:bg-red-500/5 transition-all text-left">
+                    <i class="fa-solid fa-right-from-bracket text-lg"></i>
+                    Logout
+                </button>
             </div>
         </aside>
 
