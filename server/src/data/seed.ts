@@ -8,7 +8,7 @@ export async function seedDatabase() {
   const services = await Promise.all([
     prisma.service.upsert({
       where: { slug: 'netflix' },
-      data: {
+      create: {
         slug: 'netflix',
         name: 'Netflix Premium',
         price: 2500,
@@ -21,7 +21,7 @@ export async function seedDatabase() {
     }),
     prisma.service.upsert({
       where: { slug: 'spotify' },
-      data: {
+      create: {
         slug: 'spotify',
         name: 'Spotify Premium',
         price: 1000,
@@ -34,7 +34,7 @@ export async function seedDatabase() {
     }),
     prisma.service.upsert({
       where: { slug: 'amazon' },
-      data: {
+      create: {
         slug: 'amazon',
         name: 'Amazon Prime',
         price: 2000,
@@ -47,7 +47,7 @@ export async function seedDatabase() {
     }),
     prisma.service.upsert({
       where: { slug: 'youtube' },
-      data: {
+      create: {
         slug: 'youtube',
         name: 'YouTube Premium',
         price: 1500,
@@ -60,7 +60,7 @@ export async function seedDatabase() {
     }),
     prisma.service.upsert({
       where: { slug: 'apple' },
-      data: {
+      create: {
         slug: 'apple',
         name: 'Apple Music',
         price: 1000,
@@ -78,7 +78,7 @@ export async function seedDatabase() {
 
   const adminUser = await prisma.user.upsert({
     where: { email: 'admin@optimedia.local' },
-    data: {
+    create: {
       name: 'OptiMedia Admin',
       email: 'admin@optimedia.local',
       whatsapp: '+2348000000000',
@@ -91,7 +91,7 @@ export async function seedDatabase() {
 
   const user = await prisma.user.upsert({
     where: { email: 'john@example.com' },
-    data: {
+    create: {
       name: 'John Doe',
       email: 'john@example.com',
       whatsapp: '+2348012345678',

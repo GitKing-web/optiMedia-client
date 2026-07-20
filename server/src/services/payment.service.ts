@@ -160,35 +160,6 @@ async function finalizeSuccessfulPayment(paymentReference: string, transaction: 
     payment: updatedPayment,
     subscription,
   }
-
-  await prisma.activity.create({
-    data: {
-      id: createId('act'),
-      userId: user.id,
-      type: 'payment',
-      service: `${service.name} Payment`,
-      amount: money(service.price),
-      status: 'Completed',
-      date: 'Just now',
-      icon: service.icon,
-    },
-  })
-
-  const updatedPayment = await prisma.payment.update({
-    where: { reference: paymentReference },
-    data: {
-      status: 'success',
-      paidAt: transaction.paid_at ? new Date(transaction.paid_at) : new Date(),
-      subscriptionId: subscription?.id,
-      paystackResponse: transaction as Prisma.InputJsonValue,
-    },
-  })
-
-  return {
-    message: 'Payment verified successfully',
-    payment: updatedPayment,
-    subscription,
-  }
 }
 
 export async function createPaystackCheckout(user: AuthUser, service: Service) {
