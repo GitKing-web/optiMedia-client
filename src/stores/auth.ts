@@ -68,6 +68,7 @@ export const useAuthStore = defineStore('auth', () => {
 
             setToken(response.token)
             setUser(response.user, response.user.role === 'admin')
+            isHydrated.value = true
             return response
         } catch (error) {
             if (error instanceof ApiError) {
@@ -93,6 +94,7 @@ export const useAuthStore = defineStore('auth', () => {
 
             setToken(response.token)
             setUser(response.user, response.user.role === 'admin')
+            isHydrated.value = true
             return response
         } catch (error) {
             if (error instanceof ApiError) {

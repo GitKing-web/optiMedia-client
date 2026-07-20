@@ -62,9 +62,6 @@ const roleLabel = computed(() => (authStore.isAdmin ? 'Administrator' : 'Custome
 
                 <div class="rounded-2xl border border-white/5 bg-white/5 p-5">
                     <p class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Next Step</p>
-                    <p class="text-sm text-white/80">
-                        Update endpoints can be added next if you want profile editing to persist to PostgreSQL.
-                    </p>
                 </div>
             </div>
         </div>

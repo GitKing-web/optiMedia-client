@@ -26,6 +26,24 @@ const routes = [
         meta: { hideNavbar: true, hideFooter: true, requiresAuth: true, requiresAdmin: true }
     },
     {
+        path: '/admin/logs',
+        name: 'AdminActivityLogs',
+        component: () => import('../views/AdminActivityLogs.vue'),
+        meta: { hideNavbar: true, hideFooter: true, requiresAuth: true, requiresAdmin: true }
+    },
+    {
+        path: '/admin/email',
+        name: 'AdminEmailUsers',
+        component: () => import('../views/AdminEmailUsers.vue'),
+        meta: { hideNavbar: true, hideFooter: true, requiresAuth: true, requiresAdmin: true }
+    },
+    {
+        path: '/admin/revenue',
+        name: 'AdminRevenue',
+        component: () => import('../views/AdminRevenue.vue'),
+        meta: { hideNavbar: true, hideFooter: true, requiresAuth: true, requiresAdmin: true }
+    },
+    {
         path: '/login',
         name: 'Login',
         component: () => import('../views/Login.vue'),
@@ -88,11 +106,12 @@ router.beforeEach(async (to) => {
         try {
             await authStore.fetchCurrentUser()
         } catch {
+            authStore.isHydrated = true
         }
     }
 
     if (guestOnly && authStore.isAuthenticated) {
-        return '/dashboard'
+        return authStore.isAdmin ? '/admin' : '/dashboard'
     }
 
     if (needsAuth && !authStore.isAuthenticated) {

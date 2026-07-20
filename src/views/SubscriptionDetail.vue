@@ -60,22 +60,22 @@ async function handleSubscribe() {
 <template>
     <div
         v-if="matchedService"
-        class="min-h-screen bg-secondary relative flex items-center justify-center px-4 py-8 sm:p-6 lg:p-12 overflow-hidden"
+        class="min-h-screen bg-secondary relative flex items-center justify-center p-4 sm:p-6 lg:p-12 overflow-hidden"
     >
         <div class="absolute inset-0 z-0 pointer-events-none overflow-hidden">
             <div
-                class="absolute inset-0 bg-cover bg-center opacity-60 transition-all duration-1000 scale-100 blur-none"
+                class="absolute inset-0 bg-cover bg-center opacity-50 transition-all duration-1000"
                 :style="{ backgroundImage: `url(${matchedService.bg})` }"
             ></div>
-            <div class="absolute inset-0 bg-gradient-to-t from-secondary via-secondary/60 to-black/20"></div>
-            <div class="absolute inset-0 bg-gradient-to-r from-secondary/40 via-transparent to-secondary/40"></div>
+            <div class="absolute inset-0 bg-gradient-to-t from-secondary via-secondary/70 to-black/30"></div>
+            <div class="absolute inset-0 bg-gradient-to-r from-secondary/50 via-transparent to-secondary/50"></div>
         </div>
 
-        <div class="relative z-10 w-full max-w-4xl flex flex-col items-center">
-            <div class="w-full flex justify-between items-center mb-6 sm:mb-8">
+        <div class="relative z-10 w-full max-w-5xl flex flex-col items-center">
+            <div class="w-full mb-6 sm:mb-8">
                 <button
                     @click="router.push('/subscriptions')"
-                    class="text-xs font-black uppercase tracking-widest text-primary bg-secondary/80 border border-white/5 px-5 sm:px-6 py-3 rounded-2xl hover:bg-white hover:text-secondary hover:scale-105 transition-all flex items-center gap-2 shadow-2xl backdrop-blur-md"
+                    class="text-xs font-black uppercase tracking-widest text-primary bg-secondary/80 border border-white/5 px-5 py-3 rounded-2xl hover:bg-white hover:text-secondary hover:scale-105 transition-all flex items-center gap-2 shadow-2xl backdrop-blur-md"
                 >
                     <i class="fa-solid fa-arrow-left"></i>
                     Back to Catalog
@@ -83,70 +83,74 @@ async function handleSubscribe() {
             </div>
 
             <div
-                class="w-full bg-secondary/40 backdrop-blur-md rounded-[2rem] sm:rounded-[3rem] border border-white/10 shadow-5xl overflow-hidden flex flex-col md:flex-row items-stretch p-6 sm:p-8 md:p-12 gap-8 md:gap-10"
+                class="w-full bg-secondary/40 backdrop-blur-md rounded-[2rem] sm:rounded-[3rem] border border-white/10 shadow-2xl overflow-hidden flex flex-col lg:flex-row items-stretch p-6 sm:p-8 lg:p-12 gap-8 lg:gap-12"
             >
-                <div class="flex-1 flex flex-col justify-between">
+                <div class="flex-1 flex flex-col justify-between gap-6">
                     <div>
                         <div
-                            class="h-16 w-16 sm:h-24 sm:w-24 bg-white/10 text-white rounded-2xl sm:rounded-[2.2rem] flex items-center justify-center text-3xl sm:text-5xl mb-6 sm:mb-8 border border-white/10 shadow-2xl shrink-0"
+                            class="h-16 w-16 sm:h-20 sm:w-20 bg-white/10 text-white rounded-2xl sm:rounded-[2rem] flex items-center justify-center text-3xl sm:text-4xl mb-5 border border-white/10 shadow-lg shrink-0"
                         >
                             <i :class="matchedService.icon"></i>
                         </div>
-                        <h1 class="text-3xl sm:text-4xl md:text-5xl font-black text-white mb-4 sm:mb-6 uppercase tracking-tight italic">
+                        <h1 class="text-3xl sm:text-5xl font-black text-white uppercase tracking-tight italic">
                             {{ matchedService.name }}
                         </h1>
-                        <p class="text-white/80 text-sm sm:text-base md:text-lg leading-relaxed font-bold mb-6 sm:mb-8 drop-shadow-sm">
+                        <p class="text-white/70 text-sm sm:text-base leading-relaxed font-semibold mt-4">
                             {{ matchedService.description }}
                         </p>
                     </div>
 
-                    <div class="flex flex-wrap gap-2 sm:gap-3">
+                    <div class="flex flex-wrap gap-2">
                         <span
-                            v-for="tag in ['Official Premium', 'NGN Rates', 'Full Warranty', 'Paystack Secure Checkout']"
-                            :key="tag"
-                            class="px-3 sm:px-4 py-2 rounded-full border border-white/10 bg-black/20 text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-white/60 shadow-inner"
+                            v-for="feature in matchedService.features"
+                            :key="feature"
+                            class="px-3 py-2 rounded-full border border-white/10 bg-black/20 text-[9px] font-black uppercase tracking-widest text-white/60"
                         >
-                            {{ tag }}
+                            {{ feature }}
                         </span>
                     </div>
                 </div>
 
                 <div
-                    class="w-full md:w-80 bg-black/30 border border-white/5 rounded-[1.8rem] sm:rounded-[2.5rem] p-6 sm:p-8 flex flex-col justify-between backdrop-blur-sm"
+                    class="w-full lg:w-80 bg-black/30 border border-white/5 rounded-[1.8rem] sm:rounded-[2.5rem] p-6 sm:p-8 flex flex-col justify-between backdrop-blur-sm gap-6"
                 >
-                    <div class="mb-6 sm:mb-10 text-center md:text-left">
+                    <div class="text-center lg:text-left">
                         <p class="text-[10px] font-black uppercase tracking-widest text-primary mb-2">Monthly Membership</p>
                         <h2 class="text-4xl sm:text-5xl font-black text-white tracking-tight">
                             ₦{{ matchedService.price.toLocaleString() }}
-                            <span class="text-xs font-bold text-white/40 tracking-normal block md:inline-block md:mt-0 mt-1">/ month</span>
+                            <span class="text-xs font-bold text-white/40 tracking-normal block sm:inline sm:mt-0 mt-1">/ month</span>
                         </h2>
                     </div>
 
-                    <div class="space-y-4 sm:space-y-6 mb-8 sm:mb-10">
-                        <div class="flex items-center gap-3 sm:gap-4 text-white/80 font-bold text-xs sm:text-sm drop-shadow-sm">
-                            <i class="fa-solid fa-circle-check text-primary text-lg sm:text-xl shrink-0"></i>
-                            <span>Dedicated Profiles</span>
+                    <div class="space-y-4">
+                        <div class="flex items-center gap-3 text-white/70 font-bold text-sm">
+                            <i class="fa-solid fa-circle-check text-primary text-lg shrink-0"></i>
+                            <span>Official Premium Account</span>
                         </div>
-                        <div class="flex items-center gap-3 sm:gap-4 text-white/80 font-bold text-xs sm:text-sm drop-shadow-sm">
-                            <i class="fa-solid fa-circle-check text-primary text-lg sm:text-xl shrink-0"></i>
+                        <div class="flex items-center gap-3 text-white/70 font-bold text-sm">
+                            <i class="fa-solid fa-circle-check text-primary text-lg shrink-0"></i>
                             <span>Paystack Secure Checkout</span>
                         </div>
-                        <div class="flex items-center gap-3 sm:gap-4 text-white/80 font-bold text-xs sm:text-sm drop-shadow-sm">
-                            <i class="fa-solid fa-circle-check text-primary text-lg sm:text-xl shrink-0"></i>
-                            <span>Instant Payment Verification</span>
+                        <div class="flex items-center gap-3 text-white/70 font-bold text-sm">
+                            <i class="fa-solid fa-circle-check text-primary text-lg shrink-0"></i>
+                            <span>Instant Activation</span>
+                        </div>
+                        <div class="flex items-center gap-3 text-white/70 font-bold text-sm">
+                            <i class="fa-solid fa-circle-check text-primary text-lg shrink-0"></i>
+                            <span>24/7 Support</span>
                         </div>
                     </div>
 
                     <button
                         @click="handleSubscribe"
                         :disabled="isRedirecting"
-                        class="w-full bg-primary text-white py-4 sm:py-5 rounded-xl sm:rounded-2xl font-black uppercase tracking-widest hover:scale-103 active:scale-97 hover:shadow-2xl hover:shadow-primary/40 transition-all flex items-center justify-center gap-3 shadow-xl shadow-primary/30 group text-xs sm:text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                        class="w-full bg-primary text-white py-4 rounded-xl font-black uppercase tracking-widest hover:brightness-110 active:scale-[0.98] transition-all shadow-xl shadow-primary/30 flex items-center justify-center gap-3 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                         {{ isRedirecting ? 'Processing...' : 'Subscribe Now' }}
                         <i class="fa-solid fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
                     </button>
 
-                    <p v-if="statusMessage" class="mt-4 text-xs font-semibold text-white/70 text-center md:text-left">
+                    <p v-if="statusMessage" class="text-xs font-semibold text-white/60 text-center lg:text-left">
                         {{ statusMessage }}
                     </p>
                 </div>

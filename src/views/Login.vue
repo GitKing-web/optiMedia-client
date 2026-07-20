@@ -41,8 +41,8 @@ async function handleLogin() {
 
     if (!hasError) {
         try {
-            await authStore.login(identifier.value, password.value)
-            router.push('/dashboard')
+            const res = await authStore.login(identifier.value, password.value)
+            router.push(res.user.role === 'admin' ? '/admin' : '/dashboard')
         } catch {
             submitError.value = authStore.authError || 'Login failed'
         }
@@ -168,10 +168,19 @@ async function handleLogin() {
                     </div>
 
                     <!-- Submit Button -->
-                    <button type="submit" :disabled="!isFormValid"
+                    <button type="submit" :disabled="!isFormValid || authStore.isLoading"
                         class="w-full bg-primary text-white py-4 rounded-xl font-black uppercase tracking-widest hover:brightness-110 active:scale-[0.98] transition-all shadow-xl shadow-primary/30 mt-4 h-14 flex items-center justify-center gap-3 group disabled:opacity-50 disabled:cursor-not-allowed">
-                        Sign In
-                        <i class="fa-solid fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
+                        <template v-if="authStore.isLoading">
+                            <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                            Signing In...
+                        </template>
+                        <template v-else>
+                            Sign In
+                            <i class="fa-solid fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
+                        </template>
                     </button>
                 </form>
 
