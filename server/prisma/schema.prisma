@@ -44,9 +44,10 @@ model User {
   avatar       String?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
-  subscriptions Subscription[]
-  activities   Activity[]
-  payments     Payment[]
+  subscriptions      Subscription[]
+  activities         Activity[]
+  payments           Payment[]
+  passwordResetTokens PasswordResetToken[]
 }
 
 model Service {
