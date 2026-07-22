@@ -67,19 +67,19 @@ function toggleFaq(index: number) {
             <div class="absolute inset-0 z-0">
                 <img src="/images/ads/ad1.jpeg" alt="Background"
                     class="w-full h-full object-cover opacity-15 grayscale hover:grayscale-0 transition-all duration-1000 scale-105" />
-                <div class="absolute inset-0 bg-gradient-to-tr from-secondary via-secondary/80 to-primary/20"></div>
+                <div class="absolute inset-0 bg-linear-to-tr from-secondary via-secondary/80 to-primary/20"></div>
             </div>
 
             <div class="container mx-auto px-4 sm:px-10 relative z-10">
                 <div class="inline-block animate-bounce-slow mb-10">
-                    <div class="p-1.5 bg-gradient-to-br from-primary to-tertiary rounded-[2.8rem] shadow-2xl">
+                    <div class="p-1.5 bg-linear-to-br from-primary to-tertiary rounded-[2.8rem] shadow-2xl">
                         <img src="/images/logo.jpeg" alt="Logo"
                             class="w-24 h-24 sm:w-36 sm:h-36 object-cover rounded-[2.5rem] border-4 border-white/10" />
                     </div>
                 </div>
                 <h1 class="text-3xl sm:text-5xl md:text-7xl lg:text-[8rem] font-black tracking-tighter mb-10 leading-[0.9] sm:leading-[0.8]">
                     PREMIUM FOR <br />
-                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary to-tertiary italic">LESS
+                    <span class="text-transparent bg-clip-text bg-linear-to-r from-primary to-tertiary italic">LESS
                         THE PRICE.</span>
                 </h1>
                 <p class="text-base sm:text-xl md:text-2xl text-white/70 max-w-4xl mx-auto mb-14 leading-relaxed font-bold">
@@ -95,7 +95,7 @@ function toggleFaq(index: number) {
                         <i class="fa-solid fa-arrow-right group-hover:translate-x-2 transition-transform"></i>
                     </button>
                     <a href="#pricing"
-                        class="text-white/60 hover:text-white transition-all font-black uppercase tracking-[0.1em] text-lg flex items-center gap-2 group">
+                        class="text-white/60 hover:text-white transition-all font-black uppercase tracking-widest text-lg flex items-center gap-2 group">
                         View Plans
                         <i class="fa-solid fa-chevron-down group-hover:translate-y-2 transition-transform"></i>
                     </a>
@@ -119,7 +119,7 @@ function toggleFaq(index: number) {
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 sm:gap-24 items-center">
                     <div class="relative group">
                         <div
-                            class="absolute -inset-4 bg-gradient-to-br from-primary to-tertiary rounded-[2.5rem] sm:rounded-[4rem] blur-3xl opacity-20 group-hover:opacity-40 transition-opacity">
+                            class="absolute -inset-4 bg-linear-to-br from-primary to-tertiary rounded-[2.5rem] sm:rounded-[4rem] blur-3xl opacity-20 group-hover:opacity-40 transition-opacity">
                         </div>
                         <div
                             class="relative bg-secondary p-8 sm:p-16 rounded-[2.5rem] sm:rounded-[4rem] text-white shadow-3xl overflow-hidden border border-white/5">
@@ -252,7 +252,7 @@ function toggleFaq(index: number) {
                     BS. JUST <span class="text-tertiary">ANSWERS</span></h2>
                 <div class="space-y-4 sm:space-y-6">
                     <div v-for="(faq, index) in faqs" :key="index"
-                        class="border-2 sm:border-4 border-muted rounded-[2rem] sm:rounded-[3rem] overflow-hidden bg-card transition-all"
+                        class="border-2 sm:border-4 border-muted rounded-4xl sm:rounded-[3rem] overflow-hidden bg-card transition-all"
                         :class="faq.open ? 'border-primary/20 shadow-2xl scale-[1.01]' : 'hover:border-primary/10'">
                         <button @click="toggleFaq(index)"
                             class="w-full px-6 sm:px-12 py-6 sm:py-10 flex justify-between items-center text-left transition-all gap-4"
@@ -272,7 +272,7 @@ function toggleFaq(index: number) {
         </section>
 
         <footer id="contact" class="bg-secondary text-white pt-20 sm:pt-32 pb-12 sm:pb-16 relative overflow-hidden">
-            <div class="absolute -left-20 -bottom-20 w-[30rem] sm:w-[60rem] h-[30rem] sm:h-[60rem] bg-primary/5 rounded-full blur-[80px] sm:blur-[120px]"></div>
+            <div class="absolute -left-20 -bottom-20 w-120 sm:w-240 h-120 sm:h-240 bg-primary/5 rounded-full blur-[80px] sm:blur-[120px]"></div>
             <div class="container mx-auto px-4 sm:px-10 relative z-10">
                 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-12 sm:gap-16 md:gap-24 mb-16 sm:mb-24 border-b-2 border-white/5 pb-16 sm:pb-24">
                     <div class="col-span-1 sm:col-span-2 md:col-span-1">

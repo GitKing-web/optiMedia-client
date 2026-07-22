@@ -11,7 +11,6 @@ const props = defineProps<{
     isActive: boolean
 }>()
 
-
 const countdown = ref('')
 let timer: any = null
 
@@ -54,23 +53,23 @@ onUnmounted(() => {
 
 <template>
     <div @click="$emit('select')"
-        class="group relative flex items-center justify-between p-5 rounded-3xl border transition-all duration-500 cursor-pointer overflow-hidden"
-        :class="isActive ? 'border-primary bg-primary/5 shadow-lg shadow-primary/10' : 'border-secondary/5 bg-white hover:border-primary/30 hover:bg-muted'">
+        class="group relative flex items-center justify-between p-5 rounded-3xl border transition-all duration-300 cursor-pointer overflow-hidden backdrop-blur-md"
+        :class="isActive ? 'border-primary bg-primary/10 shadow-lg shadow-primary/10' : 'border-white/10 bg-white/5 hover:border-primary/40 hover:bg-white/8'">
         <div class="flex items-center gap-4 relative z-10">
             <div
-                :class="`h-12 w-12 rounded-2xl flex items-center justify-center text-xl transition-transform duration-500 group-hover:scale-110 ${isActive ? 'bg-primary text-white' : 'bg-muted text-secondary'}`">
+                :class="`h-12 w-12 rounded-2xl flex items-center justify-center text-xl transition-transform duration-300 group-hover:scale-105 border ${isActive ? 'bg-primary text-white border-primary' : 'bg-white/10 text-white border-white/10'}`">
                 <i :class="icon"></i>
             </div>
             <div>
-                <h4 class="font-bold text-secondary text-sm group-hover:text-primary transition-colors">{{ name }}</h4>
-                <p class="text-[11px] text-secondary/40 font-medium">{{ countdown }}</p>
+                <h4 class="font-bold text-white text-sm group-hover:text-primary transition-colors tracking-tight uppercase italic">{{ name }}</h4>
+                <p class="text-[11px] text-white/40 font-medium mt-0.5">{{ countdown }}</p>
             </div>
         </div>
 
         <div class="text-right relative z-10">
-            <p class="font-black text-secondary text-sm">₦{{ price.toLocaleString() }}</p>
+            <p class="font-black text-white text-sm">₦{{ price.toLocaleString() }}</p>
             <span
-                :class="`text-[9px] font-black uppercase tracking-widest ${status === 'active' ? 'text-tertiary' : status === 'pending' ? 'text-[#ffd700]' : 'text-red-500'}`">
+                :class="`text-[9px] font-black uppercase tracking-widest ${status === 'active' ? 'text-emerald-400' : status === 'pending' ? 'text-amber-400' : 'text-red-400'}`">
                 ● {{ status }}
             </span>
         </div>
