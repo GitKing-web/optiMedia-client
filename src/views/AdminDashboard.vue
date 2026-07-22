@@ -202,15 +202,15 @@ function getDaysRemaining(expireDateStr?: string) {
 
                     <div v-if="activeTab === 'pending' && pendingUsers.length > 0" class="flex items-center gap-3">
                         <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="checkbox" :checked="selectedIds.value.size === pendingUsers.length && pendingUsers.length > 0"
+                            <input type="checkbox" :checked="selectedIds.size === pendingUsers.length && pendingUsers.length > 0"
                                 @change="toggleSelectAll"
                                 class="w-4 h-4 rounded border-white/20 text-primary focus:ring-primary" />
                             <span class="text-[10px] font-black uppercase tracking-widest text-white/40">Select All</span>
                         </label>
-                        <button v-if="selectedIds.value.size > 0" @click="bulkActivate"
+                        <button v-if="selectedIds.size > 0" @click="bulkActivate"
                             :disabled="adminStore.bulkActivating"
                             class="bg-emerald-500 text-white px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all disabled:opacity-50">
-                            {{ adminStore.bulkActivating ? 'Activating...' : `Activate (${selectedIds.value.size})` }}
+                            {{ adminStore.bulkActivating ? 'Activating...' : `Activate (${selectedIds.size})` }}
                         </button>
                     </div>
 
@@ -233,7 +233,7 @@ function getDaysRemaining(expireDateStr?: string) {
                                     <tr v-for="user in filteredUsers" :key="user.userId"
                                         class="hover:bg-white/5 transition-all">
                                         <td v-if="activeTab === 'pending'" class="py-4 px-2">
-                                            <input type="checkbox" :checked="selectedIds.value.has(user.userId)"
+                                            <input type="checkbox" :checked="selectedIds.has(user.userId)"
                                                 @change="toggleSelect(user.userId)"
                                                 class="w-4 h-4 rounded border-white/20 text-primary focus:ring-primary" />
                                         </td>
