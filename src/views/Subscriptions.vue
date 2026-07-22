@@ -59,34 +59,38 @@ function handleSelect(slug: string) {
                     v-for="service in subStore.availableServices"
                     :key="service.id"
                     @click="handleSelect(service.slug)"
-                    class="group relative bg-white/5 backdrop-blur-md p-6 sm:p-8 rounded-3xl border border-white/5 hover:border-primary/30 transition-all duration-500 cursor-pointer flex flex-col justify-between shadow-sm hover:shadow-2xl hover:-translate-y-1 overflow-hidden"
+                    class="group relative bg-white/5 backdrop-blur-md p-6 sm:p-8 rounded-3xl border border-primary/30 sm:border-white/5 sm:hover:border-primary/30 active:scale-[0.98] transition-all duration-500 cursor-pointer flex flex-col justify-between shadow-sm hover:shadow-2xl hover:-translate-y-1 overflow-hidden"
                 >
-                    <div class="absolute -right-20 -top-20 w-40 h-40 bg-primary/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+                    <!-- Background Glow -->
+                    <div class="absolute -right-20 -top-20 w-40 h-40 bg-primary/10 sm:bg-primary/5 rounded-full blur-3xl opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-700"></div>
 
                     <div class="flex flex-col gap-4">
-                        <div class="h-14 w-14 sm:h-16 sm:w-16 bg-white/5 text-white/80 rounded-2xl flex items-center justify-center text-2xl sm:text-3xl border border-white/5 group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-all duration-500 shrink-0">
+                        <!-- Icon Box: Active colors by default on mobile, hover-activated on sm+ -->
+                        <div class="h-14 w-14 sm:h-16 sm:w-16 bg-primary sm:bg-white/5 text-white sm:text-white/80 rounded-2xl flex items-center justify-center text-2xl sm:text-3xl border border-primary sm:border-white/5 sm:group-hover:bg-primary sm:group-hover:text-white sm:group-hover:border-primary transition-all duration-500 shrink-0">
                             <i :class="service.icon"></i>
                         </div>
 
                         <div>
-                            <h3 class="text-xl sm:text-2xl font-black text-white group-hover:text-primary transition-colors tracking-tight uppercase italic">
+                            <!-- Service Title -->
+                            <h3 class="text-xl sm:text-2xl font-black text-primary sm:text-white sm:group-hover:text-primary transition-colors tracking-tight uppercase italic">
                                 {{ service.name }}
                             </h3>
-                            <p class="text-sm text-white/40 leading-relaxed mt-2 line-clamp-2">
+                            <p class="text-sm text-white/60 sm:text-white/40 leading-relaxed mt-2 line-clamp-2">
                                 {{ service.description }}
                             </p>
                         </div>
                     </div>
 
-                    <div class="flex items-center justify-between border-t border-white/5 pt-5 mt-6 shrink-0">
+                    <div class="flex items-center justify-between border-t border-white/10 sm:border-white/5 pt-5 mt-6 shrink-0">
                         <div>
-                            <p class="text-[9px] font-black uppercase tracking-widest text-white/30 mb-0.5">Monthly</p>
+                            <p class="text-[9px] font-black uppercase tracking-widest text-white/40 sm:text-white/30 mb-0.5">Monthly</p>
                             <p class="text-lg sm:text-xl font-black text-white">
                                 ₦{{ service.price.toLocaleString() }}
                             </p>
                         </div>
 
-                        <div class="h-10 w-10 rounded-xl bg-white/5 text-white/40 border border-white/5 group-hover:bg-primary group-hover:text-white group-hover:border-primary flex items-center justify-center transition-all duration-500">
+                        <!-- Action Arrow: Colored by default on mobile -->
+                        <div class="h-10 w-10 rounded-xl bg-primary sm:bg-white/5 text-white sm:text-white/40 border border-primary sm:border-white/5 sm:group-hover:bg-primary sm:group-hover:text-white sm:group-hover:border-primary flex items-center justify-center transition-all duration-500">
                             <i class="fa-solid fa-chevron-right text-sm"></i>
                         </div>
                     </div>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
@@ -7,8 +7,17 @@ const authStore = useAuthStore()
 const router = useRouter()
 const route = useRoute()
 
-const userName = ref('Alex K.')
 const isMobileNavOpen = ref(false)
+
+const userName = computed(() => authStore.user?.name || 'User')
+const userInitial = computed(() => userName.value.charAt(0).toUpperCase())
+
+const greeting = computed(() => {
+    const hour = new Date().getHours()
+    if (hour < 12) return 'Good morning'
+    if (hour < 17) return 'Good afternoon'
+    return 'Good evening'
+})
 
 const navigateTo = (path: string) => {
     isMobileNavOpen.value = false
@@ -98,10 +107,7 @@ watch(() => route.path, () => {
             <div class="mt-auto pt-6 border-t border-white/5 space-y-2">
                 <div class="bg-black/30 border border-white/5 rounded-2xl p-5 relative overflow-hidden">
                     <p class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Status</p>
-                    <h4 class="text-base font-black text-white italic mb-4">Pro Member</h4>
-                    <button class="w-full bg-white text-secondary py-3 rounded-xl font-black uppercase tracking-widest text-xs hover:bg-white/90 transition-all">
-                        Upgrade Plan
-                    </button>
+                    <h4 class="text-base font-black text-white italic">Pro Member</h4>
                 </div>
                 <button @click="handleLogout"
                     class="w-full flex items-center gap-3 px-5 py-3.5 rounded-2xl font-bold text-sm tracking-tight text-red-400/60 hover:text-red-400 hover:bg-red-500/5 transition-all text-left">
@@ -115,7 +121,7 @@ watch(() => route.path, () => {
             <header class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-10 relative z-10">
                 <div>
                     <h1 class="text-2xl sm:text-3xl font-black tracking-tight uppercase italic">
-                        Good morning, {{ userName }}
+                        {{ greeting }}, {{ userName }}
                     </h1>
                     <p class="text-white/40 font-medium text-xs sm:text-sm mt-0.5">
                         <span v-if="route.name === 'DashboardHome'">Here's what's happening with your subscriptions today.</span>
@@ -129,7 +135,7 @@ watch(() => route.path, () => {
                     </button>
                     <div class="flex items-center gap-3 bg-black/20 p-1.5 pr-5 rounded-xl border border-white/5">
                         <div class="h-8 w-8 bg-black/40 rounded-lg flex items-center justify-center text-xs font-black uppercase italic border border-white/10 text-primary">
-                            A
+                            {{ userInitial }}
                         </div>
                         <div>
                             <p class="font-black text-xs text-white leading-none mb-0.5">{{ userName }}</p>

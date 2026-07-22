@@ -11,9 +11,10 @@ const selectedRow = ref<AdminUserRow | null>(null)
 const showUserModal = ref(false)
 const selectedIds = ref<Set<string>>(new Set())
 
-const totalUsersCount = computed(() => adminStore.summary.totalUsers)
-const pendingCount = computed(() => adminStore.summary.pendingCount)
-const activeCount = computed(() => adminStore.summary.activeCount)
+// Computed directly from users array to prevent stale/incorrect summary counts from the store
+const totalUsersCount = computed(() => adminStore.users.length || adminStore.summary.totalUsers)
+const pendingCount = computed(() => adminStore.users.filter((u) => u.status === 'pending').length)
+const activeCount = computed(() => adminStore.users.filter((u) => u.status === 'active').length)
 const expiringCount = computed(() => adminStore.summary.expiringCount)
 
 const filteredUsers = computed(() => {
@@ -117,11 +118,6 @@ function getDaysRemaining(expireDateStr?: string) {
                     class="w-full flex items-center gap-3 px-5 py-3.5 rounded-2xl font-bold text-sm tracking-tight text-white/40 hover:text-white hover:bg-white/5 transition-all text-left">
                     <i class="fa-solid fa-download text-lg"></i>
                     Export CSV
-                </button>
-                <button @click="router.push('/dashboard')"
-                    class="w-full flex items-center gap-3 px-5 py-3.5 rounded-2xl font-bold text-sm tracking-tight text-white/40 hover:text-white hover:bg-white/5 transition-all text-left">
-                    <i class="fa-solid fa-arrow-left text-lg"></i>
-                    Dashboard
                 </button>
             </div>
         </aside>
