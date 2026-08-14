@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import StatCard from '../../components/dashboard/StatCard.vue'
 import SubscriptionItem from '../../components/dashboard/SubscriptionItem.vue'
 import HistoryTable from '../../components/dashboard/HistoryTable.vue'
+import Skeleton from '../../components/Skeleton.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useSubscriptionStore } from '../../stores/subscription'
 
@@ -26,13 +27,37 @@ onMounted(async () => {
 </script>
 
 <template>
-    <div v-if="subStore.isLoading && !subStore.metrics" class="flex items-center justify-center py-24">
-        <div class="flex flex-col items-center gap-4">
-            <svg class="animate-spin h-10 w-10 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-            </svg>
-            <p class="text-white/40 text-sm font-bold uppercase tracking-widest">Loading dashboard...</p>
+    <div v-if="subStore.isLoading && !subStore.metrics" class="space-y-8">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div v-for="i in 3" :key="i" class="bg-white/5 backdrop-blur-md p-6 rounded-4xl border border-white/10 shadow-xl">
+                <Skeleton width="2.5rem" height="2.5rem" radius="0.75rem" class="mb-5" />
+                <Skeleton width="7rem" height="0.8rem" class="mb-2" />
+                <Skeleton width="5rem" height="1.5rem" class="mb-3" />
+                <Skeleton width="9rem" height="0.7rem" />
+            </div>
+        </div>
+
+        <div class="bg-white/5 backdrop-blur-md p-5 sm:p-6 lg:p-8 rounded-4xl sm:rounded-[2.5rem] border border-white/10 shadow-xl">
+            <div class="flex justify-between items-center mb-6">
+                <Skeleton width="9rem" height="1.2rem" />
+                <Skeleton width="5rem" height="1rem" />
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div v-for="i in 3" :key="i" class="bg-white/5 p-5 rounded-3xl border border-white/10">
+                    <div class="flex items-center gap-3 mb-4">
+                        <Skeleton width="3rem" height="3rem" radius="0.75rem" />
+                    </div>
+                    <Skeleton width="10rem" height="1rem" class="mb-2" />
+                    <Skeleton width="6rem" height="1.2rem" />
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white/5 backdrop-blur-md rounded-4xl border border-white/10 shadow-xl p-6 space-y-4">
+            <Skeleton width="8rem" height="1.2rem" />
+            <Skeleton width="100%" height="3.5rem" />
+            <Skeleton width="100%" height="3.5rem" />
+            <Skeleton width="100%" height="3.5rem" />
         </div>
     </div>
 

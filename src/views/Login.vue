@@ -10,53 +10,69 @@ const identifier = ref('') // Email or WhatsApp
 const password = ref('')
 const rememberMe = ref(false)
 const showPassword = ref(false)
-
-const errors = ref({
-    identifier: '',
-    password: ''
-})
+const touched = ref<{ identifier: boolean; password: boolean }>({ identifier: false, password: false })
 const submitError = ref('')
 
-const isFormValid = computed(() => {
-    return identifier.value.length > 0 && password.value.length >= 6
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+const errors = computed(() => {
+    const errs: { identifier: string; password: string } = { identifier: '', password: '' }
+
+    if (identifier.value.trim()) {
+        if (identifier.value.includes('@') && !EMAIL_RE.test(identifier.value.trim())) {
+            errs.identifier = 'That email address doesn\u2019t look right. Please check it.'
+        } else if (!identifier.value.includes('@') && identifier.value.replace(/\D/g, '').length < 10) {
+            errs.identifier = 'Please enter a valid WhatsApp number (at least 10 digits).'
+        }
+    }
+
+    if (password.value) {
+        if (password.value.length < 6) {
+            errs.password = 'Password must be at least 6 characters long.'
+        }
+    }
+
+    return errs
 })
 
+const isFormValid = computed(() => {
+    return identifier.value.trim().length > 0 &&
+        !errors.value.identifier &&
+        password.value.length > 0 &&
+        !errors.value.password
+})
+
+function onBlur(field: 'identifier' | 'password') {
+    touched.value[field] = true
+}
+
+function errorFor(field: 'identifier' | 'password') {
+    if (!touched.value[field]) return ''
+    return errors.value[field]
+}
+
 async function handleLogin() {
+    touched.value = { identifier: true, password: true }
     submitError.value = ''
-    errors.value = {
-        identifier: '',
-        password: ''
-    }
 
-    let hasError = false
+    if (!isFormValid.value) return
 
-    if (!identifier.value) {
-        errors.value.identifier = 'Please enter your email or WhatsApp number'
-        hasError = true
-    }
-    if (password.value.length < 6) {
-        errors.value.password = 'Password must be at least 6 characters'
-        hasError = true
-    }
+    try {
+        const res = await authStore.login(identifier.value.trim(), password.value)
 
-    if (!hasError) {
-        try {
-            const res = await authStore.login(identifier.value, password.value)
+        const pendingReturn = sessionStorage.getItem('pendingPaystackReturn')
+        const pendingReference = sessionStorage.getItem('pendingPaystackReference')
 
-            const pendingReturn = sessionStorage.getItem('pendingPaystackReturn')
-            const pendingReference = sessionStorage.getItem('pendingPaystackReference')
-
-            if (pendingReturn && pendingReference) {
-                sessionStorage.removeItem('pendingPaystackReturn')
-                sessionStorage.removeItem('pendingPaystackReference')
-                router.replace(pendingReturn)
-                return
-            }
-
-            router.push(res.user.role === 'admin' ? '/admin' : '/dashboard')
-        } catch {
-            submitError.value = authStore.authError || 'Login failed'
+        if (pendingReturn && pendingReference) {
+            sessionStorage.removeItem('pendingPaystackReturn')
+            sessionStorage.removeItem('pendingPaystackReference')
+            router.replace(pendingReturn)
+            return
         }
+
+        router.push(res.user.role === 'admin' ? '/admin' : '/dashboard')
+    } catch {
+        submitError.value = authStore.authError || 'Login failed. Please try again.'
     }
 }
 </script>
@@ -128,9 +144,16 @@ async function handleLogin() {
                     <p class="text-secondary/60">Enter your credentials to access your account.</p>
                 </div>
 
-                <p v-if="submitError" class="mb-6 text-sm font-semibold text-red-500">{{ submitError }}</p>
+                <div
+                    v-if="submitError"
+                    class="mb-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4"
+                    role="alert"
+                >
+                    <i class="fa-solid fa-circle-exclamation text-red-500 mt-0.5"></i>
+                    <p class="text-sm font-semibold text-red-600">{{ submitError }}</p>
+                </div>
 
-                <form @submit.prevent="handleLogin" class="space-y-6">
+                <form @submit.prevent="handleLogin" novalidate class="space-y-6">
                     <!-- Identifier (Email or WhatsApp) -->
                     <div>
                         <label
@@ -139,11 +162,15 @@ async function handleLogin() {
                         <div class="relative">
                             <i
                                 class="fa-solid fa-user-tag absolute left-4 top-1/2 -translate-y-1/2 text-secondary/30"></i>
-                            <input v-model="identifier" type="text" placeholder="Email or WhatsApp"
-                                class="w-full bg-muted/50 border border-secondary/5 rounded-xl py-3.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
-                                :class="{ 'border-red-500': errors.identifier }" />
+                            <input v-model="identifier" type="text" placeholder="Email or WhatsApp" @blur="onBlur('identifier')"
+                                class="w-full bg-muted/50 border rounded-xl py-3.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                                :class="touched.identifier && errors.identifier ? 'border-red-400 ring-2 ring-red-100' : 'border-secondary/5'" />
+                            <i v-if="touched.identifier && errors.identifier"
+                                class="fa-solid fa-circle-exclamation absolute right-4 top-1/2 -translate-y-1/2 text-red-400"></i>
                         </div>
-                        <p v-if="errors.identifier" class="text-red-500 text-[11px] mt-1 px-1">{{ errors.identifier }}
+                        <p v-if="errorFor('identifier')"
+                            class="flex items-center gap-1.5 text-red-500 text-[11px] mt-1.5 px-1 font-medium">
+                            <i class="fa-solid fa-circle-info"></i>{{ errorFor('identifier') }}
                         </p>
                     </div>
 
@@ -158,15 +185,18 @@ async function handleLogin() {
                         </div>
                         <div class="relative">
                             <i class="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-secondary/30"></i>
-                            <input v-model="password" :type="showPassword ? 'text' : 'password'" placeholder="••••••••"
-                                class="w-full bg-muted/50 border border-secondary/5 rounded-xl py-3.5 pl-12 pr-12 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
-                                :class="{ 'border-red-500': errors.password }" />
+                            <input v-model="password" :type="showPassword ? 'text' : 'password'" placeholder="••••••••" @blur="onBlur('password')"
+                                class="w-full bg-muted/50 border rounded-xl py-3.5 pl-12 pr-12 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                                :class="touched.password && errors.password ? 'border-red-400 ring-2 ring-red-100' : 'border-secondary/5'" />
                             <button type="button" @click="showPassword = !showPassword"
                                 class="absolute right-4 top-1/2 -translate-y-1/2 text-secondary/30 hover:text-secondary transition-colors">
                                 <i :class="showPassword ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye'"></i>
                             </button>
                         </div>
-                        <p v-if="errors.password" class="text-red-500 text-[11px] mt-1 px-1">{{ errors.password }}</p>
+                        <p v-if="errorFor('password')"
+                            class="flex items-center gap-1.5 text-red-500 text-[11px] mt-1.5 px-1 font-medium">
+                            <i class="fa-solid fa-circle-info"></i>{{ errorFor('password') }}
+                        </p>
                     </div>
 
                     <!-- Remember Me -->

@@ -9,6 +9,7 @@ export interface UserProfile {
     avatar?: string
     whatsapp?: string
     role?: 'user' | 'admin'
+    emailVerified?: boolean
 }
 
 interface AuthResponse {
@@ -26,6 +27,7 @@ export const useAuthStore = defineStore('auth', () => {
     const isAdmin = ref(false)
     const isHydrated = ref(false)
     const isLoading = ref(false)
+    const isLoggingOut = ref(false)
     const authError = ref<string | null>(null)
 
     let fetchingUser = false
@@ -39,12 +41,16 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     async function logout() {
+        if (isLoggingOut.value) return
+        isLoggingOut.value = true
         try {
             await apiFetch('/api/auth/logout', { method: 'POST' })
         } catch {
+        } finally {
+            user.value = null
+            isAdmin.value = false
+            isLoggingOut.value = false
         }
-        user.value = null
-        isAdmin.value = false
     }
 
     async function login(identifier: string, password: string) {
@@ -97,6 +103,22 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
+    async function sendVerificationOtp() {
+        return apiFetch<{ message: string }>('/api/auth/send-otp', { method: 'POST' })
+    }
+
+    async function verifyEmail(email: string, code: string) {
+        const response = await apiFetch<{ message: string; user: UserProfile }>('/api/auth/verify-email', {
+            method: 'POST',
+            body: JSON.stringify({ email, code })
+        })
+
+        if (user.value) {
+            user.value = { ...user.value, emailVerified: true }
+        }
+        return response
+    }
+
     async function fetchCurrentUser(): Promise<UserProfile | null> {
         if (fetchingUser && currentUserPromise) return currentUserPromise
         fetchingUser = true
@@ -132,11 +154,14 @@ export const useAuthStore = defineStore('auth', () => {
         isAdmin,
         isAuthenticated,
         isLoading,
+        isLoggingOut,
         isHydrated,
         authError,
         setUser,
         login,
         register,
+        sendVerificationOtp,
+        verifyEmail,
         fetchCurrentUser,
         logout
     }

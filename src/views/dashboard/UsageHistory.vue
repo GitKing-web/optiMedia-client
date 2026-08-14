@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
+import Skeleton from '../../components/Skeleton.vue'
 import { useSubscriptionStore } from '../../stores/subscription'
 
 const subStore = useSubscriptionStore()
@@ -15,7 +16,24 @@ onMounted(async () => {
 
 <template>
     <div class="flex-1 flex flex-col">
-        <div v-if="activities.length > 0" class="bg-black/10 rounded-4xl border border-white/5 p-6 sm:p-8 flex-1 overflow-x-auto">
+        <div v-if="subStore.isLoading" class="bg-black/10 rounded-4xl border border-white/5 p-6 sm:p-8 flex-1">
+            <div class="flex items-center justify-between pb-4 mb-4 border-b border-white/5">
+                <Skeleton width="6rem" height="1rem" />
+                <Skeleton width="4rem" height="1rem" />
+                <Skeleton width="5rem" height="1rem" />
+                <Skeleton width="5rem" height="1rem" />
+            </div>
+            <div v-for="i in 5" :key="i" class="flex items-center gap-4 py-5 border-b border-white/5">
+                <Skeleton width="2.5rem" height="2.5rem" radius="0.75rem" />
+                <div class="flex-1 space-y-2">
+                    <Skeleton width="60%" height="0.9rem" />
+                    <Skeleton width="40%" height="0.7rem" />
+                </div>
+                <Skeleton width="5rem" height="1rem" />
+            </div>
+        </div>
+
+        <div v-else-if="activities.length > 0" class="bg-black/10 rounded-4xl border border-white/5 p-6 sm:p-8 flex-1 overflow-x-auto">
             <table class="w-full text-left border-collapse min-w-150">
                 <thead>
                     <tr class="border-b border-white/5 text-white/40 text-[10px] font-black uppercase tracking-widest">

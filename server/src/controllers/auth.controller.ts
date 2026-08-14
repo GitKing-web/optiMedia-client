@@ -6,7 +6,9 @@ import {
   publicUser,
   registerUser,
   resetPassword,
+  sendVerificationOtp,
   validateRegisterBody,
+  verifyEmailOtp,
 } from '../services/auth.service.ts'
 import { buildDashboard } from '../services/subscription.service.ts'
 import { clearAuthCookie, setAuthCookie } from '../middleware/cookieSession.ts'
@@ -97,6 +99,40 @@ export async function resetPasswordController(req: Request, res: Response) {
   }
 
   const result = await resetPassword(token, password)
+  if ('error' in result) {
+    res.status(400).json({ message: result.error })
+    return
+  }
+
+  res.json(result)
+}
+
+export async function sendOtpController(req: AuthenticatedRequest, res: Response) {
+  const user = await findAuthUserById(req.auth!.sub)
+  if (!user) {
+    res.status(404).json({ message: 'User not found' })
+    return
+  }
+
+  const result = await sendVerificationOtp(user.id)
+  if ('error' in result) {
+    res.status(400).json({ message: result.error })
+    return
+  }
+
+  res.json(result)
+}
+
+export async function verifyEmailController(req: Request, res: Response) {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim() : ''
+  const code = typeof req.body?.code === 'string' ? req.body.code.trim() : ''
+
+  if (!email || !code) {
+    res.status(400).json({ message: 'Email and code are required.' })
+    return
+  }
+
+  const result = await verifyEmailOtp(email, code)
   if ('error' in result) {
     res.status(400).json({ message: result.error })
     return

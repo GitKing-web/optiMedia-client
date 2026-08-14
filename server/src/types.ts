@@ -13,6 +13,7 @@ export interface AuthUser {
   passwordHash: string
   role: Role
   avatar: string | null
+  emailVerified: boolean
 }
 
 export interface Service {

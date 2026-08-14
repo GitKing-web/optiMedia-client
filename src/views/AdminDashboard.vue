@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import Skeleton from '../components/Skeleton.vue'
 import { useAdminStore } from '../stores/admin'
+import { useAuthStore } from '../stores/auth'
 import type { AdminUserRow } from '../stores/admin'
 
 const router = useRouter()
+const authStore = useAuthStore()
 const adminStore = useAdminStore()
 const searchQuery = ref('')
 const selectedRow = ref<AdminUserRow | null>(null)
@@ -81,6 +84,11 @@ function getDaysRemaining(expireDateStr?: string) {
     if (diff <= 0) return 0
     return Math.ceil(diff / (1000 * 60 * 60 * 24))
 }
+
+async function handleLogout() {
+    await authStore.logout()
+    router.push('/')
+}
 </script>
 
 <template>
@@ -112,6 +120,11 @@ function getDaysRemaining(expireDateStr?: string) {
                     <i class="fa-solid fa-envelope text-lg"></i>
                     Email Users
                 </button>
+                <button @click="router.push('/admin/newsletter')"
+                    class="w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold text-sm tracking-tight text-white/40 hover:text-white hover:bg-white/5 transition-all text-left">
+                    <i class="fa-solid fa-envelope-open-text text-lg"></i>
+                    Newsletter
+                </button>
             </nav>
             <div class="mt-auto pt-6 border-t border-white/5 flex flex-col gap-2">
                 <button @click="adminStore.downloadCSV()"
@@ -119,21 +132,40 @@ function getDaysRemaining(expireDateStr?: string) {
                     <i class="fa-solid fa-download text-lg"></i>
                     Export CSV
                 </button>
+                <button @click="handleLogout" :disabled="authStore.isLoggingOut"
+                    class="w-full flex items-center gap-3 px-5 py-3.5 rounded-2xl font-bold text-sm tracking-tight text-red-400/60 hover:text-red-400 hover:bg-red-500/5 transition-all text-left disabled:opacity-60 disabled:cursor-not-allowed">
+                    <i :class="authStore.isLoggingOut ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-right-from-bracket'"
+                        class="text-lg"></i>
+                    {{ authStore.isLoggingOut ? 'Logging out...' : 'Logout' }}
+                </button>
             </div>
         </aside>
 
         <main class="flex-1 p-4 sm:p-6 lg:p-8 2xl:p-12 overflow-x-hidden flex flex-col">
-            <div v-if="adminStore.isLoading && adminStore.users.length === 0"
-                class="flex items-center justify-center py-24 flex-1">
-                <div class="flex flex-col items-center gap-4">
-                    <svg class="animate-spin h-10 w-10 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none"
-                        viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
-                        </circle>
-                        <path class="opacity-75" fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                    </svg>
-                    <p class="text-white/40 text-sm font-bold uppercase tracking-widest">Loading admin data...</p>
+            <div v-if="adminStore.isLoading && adminStore.users.length === 0" class="space-y-6 flex-1">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                    <div v-for="i in 4" :key="i" class="bg-white/5 backdrop-blur-md p-5 rounded-3xl border border-white/10">
+                        <Skeleton width="2.25rem" height="2.25rem" radius="0.75rem" class="mb-4" />
+                        <Skeleton width="6rem" height="0.8rem" class="mb-2" />
+                        <Skeleton width="3.5rem" height="1.4rem" />
+                    </div>
+                </div>
+
+                <div class="bg-white/5 backdrop-blur-md rounded-4xl border border-white/10 shadow-xl overflow-hidden">
+                    <div class="p-5 border-b border-white/5">
+                        <Skeleton width="10rem" height="1.2rem" />
+                    </div>
+                    <div class="divide-y divide-white/5">
+                        <div v-for="i in 6" :key="i" class="flex items-center gap-4 px-5 py-4">
+                            <Skeleton width="2.5rem" height="2.5rem" radius="9999px" />
+                            <div class="flex-1 space-y-2">
+                                <Skeleton width="55%" height="0.9rem" />
+                                <Skeleton width="35%" height="0.7rem" />
+                            </div>
+                            <Skeleton width="6rem" height="1rem" />
+                            <Skeleton width="4rem" height="1.5rem" radius="0.5rem" />
+                        </div>
+                    </div>
                 </div>
             </div>
             <div v-else class="flex flex-col flex-1 gap-6">
@@ -315,11 +347,18 @@ function getDaysRemaining(expireDateStr?: string) {
                     </button>
                 </div>
 
-                <div v-if="adminStore.isDetailLoading" class="flex items-center justify-center py-16">
-                    <svg class="animate-spin h-8 w-8 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                    </svg>
+                <div v-if="adminStore.isDetailLoading" class="p-6 space-y-5">
+                    <div class="flex items-center gap-4">
+                        <Skeleton width="3.5rem" height="3.5rem" radius="9999px" />
+                        <div class="space-y-2">
+                            <Skeleton width="10rem" height="1rem" />
+                            <Skeleton width="7rem" height="0.8rem" />
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <Skeleton width="100%" height="3.5rem" radius="0.75rem" />
+                        <Skeleton width="100%" height="3.5rem" radius="0.75rem" />
+                    </div>
                 </div>
 
                 <div v-else-if="adminStore.selectedUserDetail" class="p-6 space-y-6">

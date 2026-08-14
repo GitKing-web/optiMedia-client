@@ -44,6 +44,12 @@ const routes = [
         meta: { hideNavbar: true, hideFooter: true, requiresAuth: true, requiresAdmin: true }
     },
     {
+        path: '/admin/newsletter',
+        name: 'AdminNewsletter',
+        component: () => import('../views/AdminNewsletter.vue'),
+        meta: { hideNavbar: true, hideFooter: true, requiresAuth: true, requiresAdmin: true }
+    },
+    {
         path: '/login',
         name: 'Login',
         component: () => import('../views/Login.vue'),

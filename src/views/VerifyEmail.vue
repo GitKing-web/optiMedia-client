@@ -2,7 +2,6 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth' // Adjust path if needed
-
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
@@ -40,9 +39,9 @@ const startResendTimer = () => {
 
 onMounted(() => {
   // Grab email from router query (e.g. /verify-email?email=user@example.com) or auth store
-  userEmail.value = (route.query.email as string) || authStore.user?.email || 'your email'
+  userEmail.value = (route.query.email as string) || authStore.user?.email || ''
   startResendTimer()
-  
+
   // Auto-focus first input field
   setTimeout(() => {
     inputRefs.value[0]?.focus()
@@ -95,21 +94,23 @@ const verifyOtp = async () => {
     errorMessage.value = 'Please enter all 6 digits.'
     return
   }
+  if (!userEmail.value) {
+    errorMessage.value = 'We need your email to verify your code.'
+    return
+  }
 
   isLoading.value = true
   errorMessage.value = ''
   successMessage.value = ''
 
   try {
-    // Replace with your API endpoint (e.g., authStore.verifyEmail(code))
-    // await axios.post('/api/auth/verify-email', { email: userEmail.value, code })
-    
+    await authStore.verifyEmail(userEmail.value, code)
     successMessage.value = 'Email verified successfully! Redirecting...'
     setTimeout(() => {
       router.push('/dashboard')
     }, 1500)
   } catch (err: any) {
-    errorMessage.value = err.response?.data?.message || 'Invalid or expired OTP code. Please try again.'
+    errorMessage.value = err?.message || err?.response?.data?.message || 'Invalid or expired OTP code. Please try again.'
   } finally {
     isLoading.value = false
   }
@@ -123,13 +124,11 @@ const handleResend = async () => {
   successMessage.value = ''
 
   try {
-    // Replace with your API endpoint (e.g., authStore.resendOtp(userEmail.value))
-    // await axios.post('/api/auth/resend-otp', { email: userEmail.value })
-    
+    await authStore.sendVerificationOtp()
     successMessage.value = 'A new verification code has been sent to your email.'
     startResendTimer()
   } catch (err: any) {
-    errorMessage.value = err.response?.data?.message || 'Failed to resend code. Please try again later.'
+    errorMessage.value = err?.message || err?.response?.data?.message || 'Failed to resend code. Please try again later.'
   }
 }
 </script>

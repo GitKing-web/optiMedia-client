@@ -14,29 +14,24 @@ const confirmPassword = ref('')
 const agreeTerms = ref(false)
 const showPassword = ref(false)
 
-const errors = ref({
-    name: '',
-    email: '',
-    whatsapp: '',
-    password: '',
-    confirmPassword: '',
-    terms: ''
+const touched = ref<Record<string, boolean>>({
+    name: false,
+    email: false,
+    whatsapp: false,
+    password: false,
+    confirmPassword: false,
+    terms: false
 })
 const submitError = ref('')
 
-const isFormValid = computed(() => {
-    return name.value.length >= 3 &&
-        email.value.includes('@') &&
-        whatsapp.value.length >= 10 &&
-        password.value.length >= 6 &&
-        password.value === confirmPassword.value &&
-        agreeTerms.value
-})
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-async function handleRegister() {
-    submitError.value = ''
-    // Reset errors
-    errors.value = {
+function normalizeWhatsApp(value: string) {
+    return value.replace(/\D/g, '')
+}
+
+const errors = computed(() => {
+    const errs: Record<string, string> = {
         name: '',
         email: '',
         whatsapp: '',
@@ -45,46 +40,106 @@ async function handleRegister() {
         terms: ''
     }
 
-    let hasError = false
-
-    if (name.value.length < 3) {
-        errors.value.name = 'Name must be at least 3 characters'
-        hasError = true
+    if (name.value.trim()) {
+        if (name.value.trim().length < 3) {
+            errs.name = 'Your name must be at least 3 characters long.'
+        }
     }
-    if (!email.value.includes('@')) {
-        errors.value.email = 'Please enter a valid email'
-        hasError = true
+    if (email.value.trim()) {
+        if (!EMAIL_RE.test(email.value.trim())) {
+            errs.email = 'That doesn\u2019t look like a valid email address.'
+        }
     }
-    if (whatsapp.value.length < 10) {
-        errors.value.whatsapp = 'Please enter a valid WhatsApp number'
-        hasError = true
+    if (whatsapp.value) {
+        const digits = normalizeWhatsApp(whatsapp.value)
+        if (digits.length < 10) {
+            errs.whatsapp = 'WhatsApp number must have at least 10 digits.'
+        } else if (!/^\+?\d+$/.test(whatsapp.value.trim()) && !/^\d+$/.test(whatsapp.value.trim())) {
+            errs.whatsapp = 'Please enter numbers only (and a + prefix if including country code).'
+        }
     }
-    if (password.value.length < 6) {
-        errors.value.password = 'Password must be at least 6 characters'
-        hasError = true
+    if (password.value) {
+        if (password.value.length < 6) {
+            errs.password = 'Password must be at least 6 characters long.'
+        } else if (!/(?=.*[A-Za-z])(?=.*\d)/.test(password.value)) {
+            errs.password = 'Use a mix of letters and numbers for a stronger password.'
+        }
     }
-    if (password.value !== confirmPassword.value) {
-        errors.value.confirmPassword = 'Passwords do not match'
-        hasError = true
+    if (confirmPassword.value) {
+        if (confirmPassword.value !== password.value) {
+            errs.confirmPassword = 'Passwords do not match.'
+        }
     }
     if (!agreeTerms.value) {
-        errors.value.terms = 'You must agree to the terms'
-        hasError = true
+        errs.terms = 'Please accept the Terms of Service to continue.'
     }
 
-    if (!hasError) {
-        try {
-            const res = await authStore.register({
-                name: name.value,
-                email: email.value,
-                whatsapp: whatsapp.value,
-                password: password.value
-            })
+    return errs
+})
 
+const passwordStrength = computed(() => {
+    const value = password.value
+    if (!value) return 0
+    let score = 0
+    if (value.length >= 6) score++
+    if (value.length >= 10) score++
+    if (/(?=.*[A-Z])(?=.*[a-z])/.test(value)) score++
+    if (/(?=.*\d)/.test(value) && /[^A-Za-z0-9]/.test(value)) score++
+    return Math.min(score, 4)
+})
+
+const isFormValid = computed(() => {
+    return name.value.trim().length >= 3 &&
+        EMAIL_RE.test(email.value.trim()) &&
+        normalizeWhatsApp(whatsapp.value).length >= 10 &&
+        password.value.length >= 6 &&
+        password.value === confirmPassword.value &&
+        agreeTerms.value &&
+        !errors.value.name && !errors.value.email && !errors.value.whatsapp &&
+        !errors.value.password && !errors.value.confirmPassword
+})
+
+function onBlur(field: keyof typeof touched.value | 'terms') {
+    touched.value[field as string] = true
+}
+
+function errorFor(field: string) {
+    if (!touched.value[field]) return ''
+    return errors.value[field] || ''
+}
+
+function strengthLabel() {
+    if (!password.value) return ''
+    const labels = ['Very weak', 'Weak', 'Okay', 'Good', 'Strong']
+    return labels[passwordStrength.value]
+}
+
+const strengthColor = computed(() => {
+    const map = ['bg-red-400', 'bg-orange-400', 'bg-yellow-400', 'bg-emerald-400', 'bg-emerald-500']
+    return map[passwordStrength.value]
+})
+
+async function handleRegister() {
+    touched.value = { name: true, email: true, whatsapp: true, password: true, confirmPassword: true, terms: true }
+    submitError.value = ''
+
+    if (!isFormValid.value) return
+
+    try {
+        const res = await authStore.register({
+            name: name.value.trim(),
+            email: email.value.trim(),
+            whatsapp: whatsapp.value.trim(),
+            password: password.value
+        })
+
+        if (res.user.emailVerified) {
             router.push(res.user.role === 'admin' ? '/admin' : '/dashboard')
-        } catch {
-            submitError.value = authStore.authError || 'Registration failed'
+        } else {
+            router.push({ path: '/verify-email', query: { email: res.user.email } })
         }
+    } catch {
+        submitError.value = authStore.authError || 'Registration failed. Please try again.'
     }
 }
 </script>
@@ -159,9 +214,16 @@ async function handleRegister() {
                     <p class="text-secondary/60">Start your journey with full marketplace access.</p>
                 </div>
 
-                <p v-if="submitError" class="mb-6 text-sm font-semibold text-red-500">{{ submitError }}</p>
+                <div
+                    v-if="submitError"
+                    class="mb-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4"
+                    role="alert"
+                >
+                    <i class="fa-solid fa-circle-exclamation text-red-500 mt-0.5"></i>
+                    <p class="text-sm font-semibold text-red-600">{{ submitError }}</p>
+                </div>
 
-                <form @submit.prevent="handleRegister" class="space-y-5">
+                <form @submit.prevent="handleRegister" novalidate class="space-y-5">
                     <!-- Full Name -->
                     <div>
                         <label
@@ -169,11 +231,16 @@ async function handleRegister() {
                             Name</label>
                         <div class="relative">
                             <i class="fa-solid fa-user absolute left-4 top-1/2 -translate-y-1/2 text-secondary/30"></i>
-                            <input v-model="name" type="text" placeholder="John Doe"
-                                class="w-full bg-muted/50 border border-secondary/5 rounded-xl py-3.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
-                                :class="{ 'border-red-500': errors.name }" />
+                            <input v-model="name" type="text" placeholder="John Doe" @blur="onBlur('name')"
+                                class="w-full bg-muted/50 border rounded-xl py-3.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                                :class="touched.name && errors.name ? 'border-red-400 ring-2 ring-red-100' : 'border-secondary/5'" />
+                            <i v-if="touched.name && errors.name"
+                                class="fa-solid fa-circle-exclamation absolute right-4 top-1/2 -translate-y-1/2 text-red-400"></i>
                         </div>
-                        <p v-if="errors.name" class="text-red-500 text-[11px] mt-1 px-1">{{ errors.name }}</p>
+                        <p v-if="errorFor('name')"
+                            class="flex items-center gap-1.5 text-red-500 text-[11px] mt-1.5 px-1 font-medium">
+                            <i class="fa-solid fa-circle-info"></i>{{ errorFor('name') }}
+                        </p>
                     </div>
 
                     <!-- Email -->
@@ -184,11 +251,16 @@ async function handleRegister() {
                         <div class="relative">
                             <i
                                 class="fa-solid fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-secondary/30"></i>
-                            <input v-model="email" type="email" placeholder="john@example.com"
-                                class="w-full bg-muted/50 border border-secondary/5 rounded-xl py-3.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
-                                :class="{ 'border-red-500': errors.email }" />
+                            <input v-model="email" type="email" placeholder="john@example.com" @blur="onBlur('email')"
+                                class="w-full bg-muted/50 border rounded-xl py-3.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                                :class="touched.email && errors.email ? 'border-red-400 ring-2 ring-red-100' : 'border-secondary/5'" />
+                            <i v-if="touched.email && errors.email"
+                                class="fa-solid fa-circle-exclamation absolute right-4 top-1/2 -translate-y-1/2 text-red-400"></i>
                         </div>
-                        <p v-if="errors.email" class="text-red-500 text-[11px] mt-1 px-1">{{ errors.email }}</p>
+                        <p v-if="errorFor('email')"
+                            class="flex items-center gap-1.5 text-red-500 text-[11px] mt-1.5 px-1 font-medium">
+                            <i class="fa-solid fa-circle-info"></i>{{ errorFor('email') }}
+                        </p>
                     </div>
 
                     <!-- WhatsApp Number -->
@@ -199,11 +271,16 @@ async function handleRegister() {
                         <div class="relative">
                             <i
                                 class="fa-brands fa-whatsapp absolute left-4 top-1/2 -translate-y-1/2 text-secondary/30"></i>
-                            <input v-model="whatsapp" type="tel" placeholder="+234 000 000 0000"
-                                class="w-full bg-muted/50 border border-secondary/5 rounded-xl py-3.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
-                                :class="{ 'border-red-500': errors.whatsapp }" />
+                            <input v-model="whatsapp" type="tel" placeholder="+234 000 000 0000" @blur="onBlur('whatsapp')"
+                                class="w-full bg-muted/50 border rounded-xl py-3.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                                :class="touched.whatsapp && errors.whatsapp ? 'border-red-400 ring-2 ring-red-100' : 'border-secondary/5'" />
+                            <i v-if="touched.whatsapp && errors.whatsapp"
+                                class="fa-solid fa-circle-exclamation absolute right-4 top-1/2 -translate-y-1/2 text-red-400"></i>
                         </div>
-                        <p v-if="errors.whatsapp" class="text-red-500 text-[11px] mt-1 px-1">{{ errors.whatsapp }}</p>
+                        <p v-if="errorFor('whatsapp')"
+                            class="flex items-center gap-1.5 text-red-500 text-[11px] mt-1.5 px-1 font-medium">
+                            <i class="fa-solid fa-circle-info"></i>{{ errorFor('whatsapp') }}
+                        </p>
                     </div>
 
                     <!-- Password -->
@@ -212,15 +289,32 @@ async function handleRegister() {
                             class="block text-[10px] font-black uppercase tracking-widest text-secondary/60 mb-2 px-1">Password</label>
                         <div class="relative">
                             <i class="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-secondary/30"></i>
-                            <input v-model="password" :type="showPassword ? 'text' : 'password'" placeholder="••••••••"
-                                class="w-full bg-muted/50 border border-secondary/5 rounded-xl py-3.5 pl-12 pr-12 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
-                                :class="{ 'border-red-500': errors.password }" />
+                            <input v-model="password" :type="showPassword ? 'text' : 'password'" placeholder="••••••••" @blur="onBlur('password')"
+                                class="w-full bg-muted/50 border rounded-xl py-3.5 pl-12 pr-12 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                                :class="touched.password && errors.password ? 'border-red-400 ring-2 ring-red-100' : 'border-secondary/5'" />
                             <button type="button" @click="showPassword = !showPassword"
                                 class="absolute right-4 top-1/2 -translate-y-1/2 text-secondary/30 hover:text-secondary transition-colors">
                                 <i :class="showPassword ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye'"></i>
                             </button>
                         </div>
-                        <p v-if="errors.password" class="text-red-500 text-[11px] mt-1 px-1">{{ errors.password }}</p>
+
+                        <!-- Password strength indicator -->
+                        <div v-if="password" class="mt-2 px-1">
+                            <div class="flex gap-1.5">
+                                <div v-for="i in 4" :key="i"
+                                    class="h-1 flex-1 rounded-full transition-all duration-300"
+                                    :class="i <= passwordStrength ? strengthColor : 'bg-secondary/10'"></div>
+                            </div>
+                            <p v-if="!errors.password" class="text-[11px] mt-1 font-medium"
+                                :class="passwordStrength <= 2 ? 'text-secondary/50' : 'text-emerald-600'">
+                                Password strength: {{ strengthLabel() }}
+                            </p>
+                        </div>
+
+                        <p v-if="errorFor('password')"
+                            class="flex items-center gap-1.5 text-red-500 text-[11px] mt-1.5 px-1 font-medium">
+                            <i class="fa-solid fa-circle-info"></i>{{ errorFor('password') }}
+                        </p>
                     </div>
 
                     <!-- Confirm Password -->
@@ -231,17 +325,21 @@ async function handleRegister() {
                         <div class="relative">
                             <i
                                 class="fa-solid fa-shield-check absolute left-4 top-1/2 -translate-y-1/2 text-secondary/30"></i>
-                            <input v-model="confirmPassword" type="password" placeholder="••••••••"
-                                class="w-full bg-muted/50 border border-secondary/5 rounded-xl py-3.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
-                                :class="{ 'border-red-500': errors.confirmPassword }" />
+                            <input v-model="confirmPassword" type="password" placeholder="••••••••" @blur="onBlur('confirmPassword')"
+                                class="w-full bg-muted/50 border rounded-xl py-3.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium"
+                                :class="touched.confirmPassword && errors.confirmPassword ? 'border-red-400 ring-2 ring-red-100' : 'border-secondary/5'" />
+                            <i v-if="touched.confirmPassword && errors.confirmPassword"
+                                class="fa-solid fa-circle-exclamation absolute right-4 top-1/2 -translate-y-1/2 text-red-400"></i>
                         </div>
-                        <p v-if="errors.confirmPassword" class="text-red-500 text-[11px] mt-1 px-1">{{
-                            errors.confirmPassword }}</p>
+                        <p v-if="errorFor('confirmPassword')"
+                            class="flex items-center gap-1.5 text-red-500 text-[11px] mt-1.5 px-1 font-medium">
+                            <i class="fa-solid fa-circle-info"></i>{{ errorFor('confirmPassword') }}
+                        </p>
                     </div>
 
                     <!-- Terms -->
                     <div class="flex items-center gap-3 py-2 px-1">
-                        <input v-model="agreeTerms" type="checkbox" id="terms"
+                        <input v-model="agreeTerms" type="checkbox" id="terms" @change="onBlur('terms')"
                             class="w-5 h-5 rounded border-secondary/20 text-primary focus:ring-primary cursor-pointer" />
                         <label for="terms" class="text-xs text-secondary/60 select-none">
                             I agree to the <a href="#" class="text-primary font-bold hover:underline">Terms of
@@ -249,7 +347,7 @@ async function handleRegister() {
                                 Policy</a>.
                         </label>
                     </div>
-                    <p v-if="errors.terms" class="text-red-500 text-[11px] px-1">{{ errors.terms }}</p>
+                    <p v-if="errorFor('terms')" class="text-red-500 text-[11px] px-1">{{ errorFor('terms') }}</p>
 
                     <!-- Submit Button -->
                     <button type="submit" :disabled="!isFormValid || authStore.isLoading"

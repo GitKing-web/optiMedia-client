@@ -79,6 +79,13 @@ export interface SubscriptionLog {
     createdAt: string
 }
 
+export interface NewsletterSubscriber {
+    id: string
+    email: string
+    active: boolean
+    createdAt: string
+}
+
 interface AdminUsersResponse {
     summary: AdminSummary
     users: AdminUserRow[]
@@ -103,6 +110,9 @@ export const useAdminStore = defineStore('admin', () => {
     const subscriptionLogs = ref<SubscriptionLog[]>([])
     const isLogsLoading = ref(false)
     const bulkActivating = ref(false)
+
+    const newsletterSubscribers = ref<NewsletterSubscriber[]>([])
+    const isNewsletterLoading = ref(false)
 
     const filteredUsers = computed(() => users.value)
 
@@ -261,6 +271,27 @@ export const useAdminStore = defineStore('admin', () => {
         await Promise.all([fetchSummary(), fetchUsers(tab)])
     }
 
+    async function fetchNewsletterSubscribers() {
+        if (!authStore.isAuthenticated) return []
+        isNewsletterLoading.value = true
+        try {
+            const response = await apiFetch<{ subscribers: NewsletterSubscriber[] }>('/api/newsletter/subscribers')
+            newsletterSubscribers.value = response.subscribers
+            return response.subscribers
+        } catch {
+            newsletterSubscribers.value = []
+            return []
+        } finally {
+            isNewsletterLoading.value = false
+        }
+    }
+
+    async function removeNewsletterSubscriber(id: string) {
+        if (!authStore.isAuthenticated) return
+        await apiFetch<{ message: string }>(`/api/newsletter/subscribers/${id}`, { method: 'DELETE' })
+        newsletterSubscribers.value = newsletterSubscribers.value.filter((s) => s.id !== id)
+    }
+
     return {
         activeTab,
         users,
@@ -275,6 +306,8 @@ export const useAdminStore = defineStore('admin', () => {
         subscriptionLogs,
         isLogsLoading,
         bulkActivating,
+        newsletterSubscribers,
+        isNewsletterLoading,
         fetchUsers,
         fetchSummary,
         activateSubscription,
@@ -284,6 +317,8 @@ export const useAdminStore = defineStore('admin', () => {
         fetchSubscriptionLogs,
         downloadCSV,
         sendEmail,
+        fetchNewsletterSubscribers,
+        removeNewsletterSubscriber,
         refresh
     }
 })

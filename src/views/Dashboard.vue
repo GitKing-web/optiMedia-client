@@ -109,36 +109,44 @@ watch(() => route.path, () => {
                     <p class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Status</p>
                     <h4 class="text-base font-black text-white italic">Pro Member</h4>
                 </div>
-                <button @click="handleLogout"
-                    class="w-full flex items-center gap-3 px-5 py-3.5 rounded-2xl font-bold text-sm tracking-tight text-red-400/60 hover:text-red-400 hover:bg-red-500/5 transition-all text-left">
-                    <i class="fa-solid fa-right-from-bracket text-lg"></i>
-                    Logout
+                <button @click="handleLogout" :disabled="authStore.isLoggingOut"
+                    class="w-full flex items-center gap-3 px-5 py-3.5 rounded-2xl font-bold text-sm tracking-tight text-red-400/60 hover:text-red-400 hover:bg-red-500/5 transition-all text-left disabled:opacity-60 disabled:cursor-not-allowed">
+                    <i :class="authStore.isLoggingOut ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-right-from-bracket'"
+                        class="text-lg"></i>
+                    {{ authStore.isLoggingOut ? 'Logging out...' : 'Logout' }}
                 </button>
             </div>
         </aside>
 
-        <main class="flex-1 p-6 lg:p-12 overflow-x-hidden flex flex-col lg:h-screen lg:overflow-y-auto">
+        <main class="flex-1 p-4 sm:p-6 lg:p-12 overflow-x-hidden flex flex-col lg:h-screen lg:overflow-y-auto">
             <header class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-10 relative z-10">
-                <div>
-                    <h1 class="text-2xl sm:text-3xl font-black tracking-tight uppercase italic">
+                <div class="min-w-0">
+                    <h1 class="text-xl sm:text-2xl md:text-3xl font-black tracking-tight uppercase italic truncate">
                         {{ greeting }}, {{ userName }}
                     </h1>
-                    <p class="text-white/40 font-medium text-xs sm:text-sm mt-0.5">
+                    <p class="text-white/40 font-medium text-xs sm:text-sm mt-1">
                         <span v-if="route.name === 'DashboardHome'">Here's what's happening with your subscriptions today.</span>
                         <span v-else-if="route.name === 'UsageHistory'">Review your historical transactions and invoices.</span>
                         <span v-else-if="route.name === 'Settings'">Configure secure credentials and account contact profiles.</span>
                     </p>
                 </div>
-                <div class="flex items-center gap-4 self-end sm:self-auto">
-                    <button class="h-11 w-11 bg-black/20 hover:bg-black/40 border border-white/5 rounded-xl flex items-center justify-center text-white/80 transition-all">
-                        <i class="fa-regular fa-bell text-lg"></i>
+                <div class="flex items-center gap-3 self-end sm:self-auto">
+                    <button
+                        class="h-11 w-11 shrink-0 bg-black/20 hover:bg-black/40 border border-white/5 rounded-xl flex items-center justify-center text-white/80 transition-all"
+                        aria-label="Notifications">
+                        <span class="relative">
+                            <i class="fa-regular fa-bell text-lg"></i>
+                            <span
+                                class="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-primary"></span>
+                        </span>
                     </button>
-                    <div class="flex items-center gap-3 bg-black/20 p-1.5 pr-5 rounded-xl border border-white/5">
-                        <div class="h-8 w-8 bg-black/40 rounded-lg flex items-center justify-center text-xs font-black uppercase italic border border-white/10 text-primary">
+                    <div class="flex items-center gap-3 bg-black/20 p-1.5 pr-4 sm:pr-5 rounded-xl border border-white/5 min-w-0">
+                        <div
+                            class="h-8 w-8 shrink-0 bg-black/40 rounded-lg flex items-center justify-center text-xs font-black uppercase italic border border-white/10 text-primary">
                             {{ userInitial }}
                         </div>
-                        <div>
-                            <p class="font-black text-xs text-white leading-none mb-0.5">{{ userName }}</p>
+                        <div class="min-w-0">
+                            <p class="font-black text-xs text-white leading-none mb-0.5 truncate">{{ userName }}</p>
                             <p class="text-[8px] font-bold text-primary uppercase tracking-widest leading-none">PRO MEMBER</p>
                         </div>
                     </div>

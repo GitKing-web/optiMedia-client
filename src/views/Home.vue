@@ -1,8 +1,38 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { apiFetch } from '../lib/api'
 
 const router = useRouter()
+
+const newsletterEmail = ref('')
+const newsletterStatus = ref<{ type: 'success' | 'error'; message: string } | null>(null)
+const newsletterLoading = ref(false)
+
+async function subscribeNewsletter() {
+    const email = newsletterEmail.value.trim()
+    newsletterStatus.value = null
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        newsletterStatus.value = { type: 'error', message: 'Please enter a valid email address.' }
+        return
+    }
+
+    newsletterLoading.value = true
+    try {
+        const res = await apiFetch<{ message: string }>('/api/newsletter/subscribe', {
+            method: 'POST',
+            body: JSON.stringify({ email })
+        })
+        newsletterStatus.value = { type: 'success', message: res.message }
+        newsletterEmail.value = ''
+    } catch (e) {
+        const message = e instanceof Error ? e.message : 'Unable to subscribe right now.'
+        newsletterStatus.value = { type: 'error', message }
+    } finally {
+        newsletterLoading.value = false
+    }
+}
 
 const pricingPlans = [
     {
@@ -324,12 +354,22 @@ function toggleFaq(index: number) {
                         <h4 class="text-[10px] sm:text-xs font-black uppercase tracking-[0.4em] text-primary mb-6 sm:mb-12">Newsletter</h4>
                         <p class="text-white/40 text-xs font-black mb-6 sm:mb-8 uppercase tracking-widest">Stay updated on new
                             deals.</p>
-                        <div class="bg-white/5 p-2 sm:p-3 rounded-xl sm:rounded-2xl border border-white/5 flex gap-2 sm:gap-3 shadow-inner">
-                            <input type="email" placeholder="YOUR EMAIL"
-                                class="bg-transparent border-none px-4 py-3 text-xs w-full outline-none font-black placeholder:text-white/10" />
-                            <button
-                                class="bg-primary px-4 sm:px-6 py-3 rounded-xl hover:brightness-110 active:scale-95 transition-all font-black text-[11px] uppercase tracking-tighter">SUB</button>
-                        </div>
+                        <form @submit.prevent="subscribeNewsletter" class="space-y-3">
+                            <div class="bg-white/5 p-2 sm:p-3 rounded-xl sm:rounded-2xl border border-white/5 flex gap-2 sm:gap-3 shadow-inner">
+                                <input v-model="newsletterEmail" type="email" placeholder="YOUR EMAIL"
+                                    class="bg-transparent border-none px-4 py-3 text-xs w-full outline-none font-black placeholder:text-white/10" />
+                                <button type="submit" :disabled="newsletterLoading"
+                                    class="bg-primary px-4 sm:px-6 py-3 rounded-xl hover:brightness-110 active:scale-95 transition-all font-black text-[11px] uppercase tracking-tighter disabled:opacity-60 disabled:cursor-not-allowed">
+                                    <i v-if="newsletterLoading" class="fa-solid fa-spinner fa-spin mr-1"></i>
+                                    SUB
+                                </button>
+                            </div>
+                            <p v-if="newsletterStatus"
+                                class="text-[11px] font-bold"
+                                :class="newsletterStatus.type === 'success' ? 'text-tertiary' : 'text-red-400'">
+                                {{ newsletterStatus.message }}
+                            </p>
+                        </form>
                     </div>
                 </div>
 

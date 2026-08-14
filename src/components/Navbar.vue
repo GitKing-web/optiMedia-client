@@ -13,18 +13,19 @@ function toggleMenu() {
 
 async function handleLogout() {
     await authStore.logout()
+    isMenuOpen.value = false
     router.push('/')
 }
 </script>
 
 <template>
     <nav
-        class="bg-secondary/95 backdrop-blur-md text-white px-8 py-5 flex justify-between items-center shadow-xl sticky top-0 z-50 border-b border-white/5 w-full">
+        class="bg-secondary/95 backdrop-blur-md text-white px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center shadow-xl sticky top-0 z-50 border-b border-white/5 w-full">
         <!-- Logo -->
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2 sm:gap-3 min-w-0">
             <img src="/images/logo.jpeg" alt="optiMedia Logo"
-                class="h-8 w-8 sm:h-10 sm:w-10 object-contain rounded-lg shadow-lg border border-white/10" />
-            <span class="text-xl sm:text-2xl font-black tracking-tighter uppercase italic">OPTIMEDIA SOLUTIONS</span>
+                class="h-8 w-8 sm:h-10 sm:w-10 object-contain rounded-lg shadow-lg border border-white/10 shrink-0" />
+            <span class="text-base sm:text-2xl font-black tracking-tighter uppercase italic truncate">OPTIMEDIA</span>
         </div>
 
         <!-- Desktop Navigation -->
@@ -52,9 +53,14 @@ async function handleLogout() {
                     <i class="fa-solid fa-user text-lg"></i>
                     <span class="text-sm font-bold uppercase tracking-widest">{{ authStore.user?.name || 'Profile' }}</span>
                 </button>
-                <button @click="handleLogout"
-                    class="bg-red-500/10 text-red-400 px-3 py-1.5 rounded-lg hover:bg-red-500/20 transition-all border border-red-500/10 text-sm font-bold uppercase tracking-widest">
-                    Logout
+                <button @click="handleLogout" :disabled="authStore.isLoggingOut"
+                    class="bg-red-500/10 text-red-400 px-3 py-1.5 rounded-lg hover:bg-red-500/20 transition-all border border-red-500/10 text-sm font-bold uppercase tracking-widest disabled:opacity-60 disabled:cursor-not-allowed">
+                    <span v-if="authStore.isLoggingOut" class="flex items-center gap-2">
+                        <i class="fa-solid fa-spinner fa-spin"></i> Logging out...
+                    </span>
+                    <span v-else class="flex items-center gap-2">
+                        <i class="fa-solid fa-right-from-bracket"></i> Logout
+                    </span>
                 </button>
             </div>
             <RouterLink v-else to="/login"
@@ -76,7 +82,7 @@ async function handleLogout() {
 
                 <!-- Side Drawer -->
                 <div
-                    class="absolute right-0 top-0 h-screen w-80 bg-secondary border-l border-white/10 shadow-4xl flex flex-col p-10 pt-32 gap-10 animate-slide-in">
+                    class="absolute right-0 top-0 h-screen w-[85vw] max-w-80 bg-secondary border-l border-white/10 shadow-4xl flex flex-col p-8 pt-32 gap-8 animate-slide-in overflow-y-auto">
                     <div class="flex flex-col gap-8">
                         <RouterLink to="/" @click="isMenuOpen = false"
                             class="text-xl sm:text-2xl font-black uppercase tracking-widest hover:text-primary transition-all flex items-center gap-4"
@@ -104,10 +110,12 @@ async function handleLogout() {
                                 <span class="text-base sm:text-lg font-black uppercase tracking-widest">{{ authStore.user?.name ||
                                     'Profile' }}</span>
                             </button>
-                            <button @click="handleLogout"
-                                class="w-full flex items-center gap-3 bg-red-500/10 px-6 py-4 rounded-2xl hover:bg-red-500/20 transition-all border border-red-500/10">
-                                <i class="fa-solid fa-right-from-bracket text-xl sm:text-2xl"></i>
-                                <span class="text-base sm:text-lg font-black uppercase tracking-widest">Logout</span>
+                            <button @click="handleLogout" :disabled="authStore.isLoggingOut"
+                                class="w-full flex items-center gap-3 bg-red-500/10 px-6 py-4 rounded-2xl hover:bg-red-500/20 transition-all border border-red-500/10 disabled:opacity-60 disabled:cursor-not-allowed">
+                                <i :class="authStore.isLoggingOut ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-right-from-bracket'"
+                                    class="text-xl sm:text-2xl"></i>
+                                <span class="text-base sm:text-lg font-black uppercase tracking-widest">{{
+                                    authStore.isLoggingOut ? 'Logging out...' : 'Logout' }}</span>
                             </button>
                         </div>
                         <RouterLink v-else to="/login" @click="isMenuOpen = false"

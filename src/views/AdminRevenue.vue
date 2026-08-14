@@ -2,13 +2,20 @@
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAdminStore } from '../stores/admin'
+import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
 const adminStore = useAdminStore()
+const authStore = useAuthStore()
 
 onMounted(() => {
     adminStore.fetchRevenue()
 })
+
+async function handleLogout() {
+    await authStore.logout()
+    router.push('/')
+}
 </script>
 
 <template>
@@ -40,6 +47,11 @@ onMounted(() => {
                     <i class="fa-solid fa-envelope text-lg"></i>
                     Email Users
                 </button>
+                <button @click="router.push('/admin/newsletter')"
+                    class="w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold text-sm tracking-tight text-white/40 hover:text-white hover:bg-white/5 transition-all text-left">
+                    <i class="fa-solid fa-envelope-open-text text-lg"></i>
+                    Newsletter
+                </button>
             </nav>
             <div class="mt-auto pt-6 border-t border-white/5 flex flex-col gap-2">
                 <button @click="adminStore.downloadCSV()"
@@ -51,6 +63,12 @@ onMounted(() => {
                     class="w-full flex items-center gap-3 px-5 py-3.5 rounded-2xl font-bold text-sm tracking-tight text-white/40 hover:text-white hover:bg-white/5 transition-all text-left">
                     <i class="fa-solid fa-arrow-left text-lg"></i>
                     Dashboard
+                </button>
+                <button @click="handleLogout" :disabled="authStore.isLoggingOut"
+                    class="w-full flex items-center gap-3 px-5 py-3.5 rounded-2xl font-bold text-sm tracking-tight text-red-400/60 hover:text-red-400 hover:bg-red-500/5 transition-all text-left disabled:opacity-60 disabled:cursor-not-allowed">
+                    <i :class="authStore.isLoggingOut ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-right-from-bracket'"
+                        class="text-lg"></i>
+                    {{ authStore.isLoggingOut ? 'Logging out...' : 'Logout' }}
                 </button>
             </div>
         </aside>

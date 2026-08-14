@@ -1,17 +1,90 @@
 import * as bcrypt from 'bcrypt'
 import * as jwt from 'jsonwebtoken'
-import { randomBytes } from 'node:crypto'
+import { randomBytes, randomInt, createHash } from 'node:crypto'
 import { prisma } from '../db/prisma.ts'
 import { normalizeEmail, normalizePhoneDigits, normalizeWhatsApp } from '../utils.ts'
 import { JWT_SECRET } from '../config.ts'
 import { getClientUrl } from '../config.ts'
-import { getEmailSender, getResend } from './email.service.ts'
+import { getEmailSender, getResend, sendVerificationEmail } from './email.service.ts'
 import type { AuthUser, JwtPayload, LoginBody, RegisterBody } from '../types.ts'
 
 const BCRYPT_ROUNDS = 10
 const RESET_TOKEN_EXPIRY_HOURS = 1
+const OTP_EXPIRY_MINUTES = 10
 const CLIENT_URL = getClientUrl()
 const resend = getResend()
+
+function hashOtp(code: string) {
+  return createHash('sha256').update(code).digest('hex')
+}
+
+export async function sendVerificationOtp(userId: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  if (!user) {
+    return { error: 'User not found' }
+  }
+
+  if (user.emailVerified) {
+    return { error: 'Email is already verified' }
+  }
+
+  const code = String(randomInt(0, 1000000)).padStart(6, '0')
+  const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000)
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      emailVerificationCode: hashOtp(code),
+      emailVerificationExpires: expiresAt,
+    },
+  })
+
+  try {
+    await sendVerificationEmail(user.email, code)
+    return { message: 'Verification code sent' }
+  } catch (error) {
+    console.error('Failed to send verification email:', error)
+    return { error: 'Unable to send verification email. Please try again.' }
+  }
+}
+
+export async function verifyEmailOtp(email: string, code: string) {
+  const normalized = normalizeEmail(email)
+  const user = await prisma.user.findUnique({ where: { email: normalized } })
+  if (!user) {
+    return { error: 'Invalid email or code' }
+  }
+
+  if (user.emailVerified) {
+    return { message: 'Email is already verified' }
+  }
+
+  if (!user.emailVerificationCode || !user.emailVerificationExpires) {
+    return { error: 'No verification code was requested for this email' }
+  }
+
+  if (new Date() > user.emailVerificationExpires) {
+    return { error: 'Verification code has expired. Please request a new one.' }
+  }
+
+  if (hashOtp(code.trim()) !== user.emailVerificationCode) {
+    return { error: 'Invalid verification code' }
+  }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      emailVerified: true,
+      emailVerificationCode: null,
+      emailVerificationExpires: null,
+    },
+  })
+
+  return {
+    message: 'Email verified successfully',
+    user: publicUser({ ...user, emailVerified: true } as AuthUser),
+  }
+}
 
 export function publicUser(user: AuthUser) {
   return {
@@ -21,6 +94,7 @@ export function publicUser(user: AuthUser) {
     whatsapp: user.whatsapp,
     role: user.role,
     avatar: user.avatar,
+    emailVerified: Boolean(user.emailVerified),
   }
 }
 
@@ -104,6 +178,8 @@ export async function registerUser(body: RegisterBody) {
       avatar: body.name!.trim()[0]?.toUpperCase() || 'U',
     },
   })
+
+  await sendVerificationOtp(user.id).catch(() => null)
 
   const token = jwt.sign(
     { sub: user.id, role: user.role, email: user.email } satisfies JwtPayload,

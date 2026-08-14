@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import Skeleton from '../components/Skeleton.vue'
 import { useSubscriptionStore } from '../stores/subscription'
 
 const subStore = useSubscriptionStore()
@@ -36,13 +37,18 @@ function handleSelect(slug: string) {
                 </p>
             </header>
 
-            <div v-if="subStore.isLoading && subStore.availableServices.length === 0" class="flex items-center justify-center py-24">
-                <div class="flex flex-col items-center gap-4">
-                    <svg class="animate-spin h-10 w-10 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                    </svg>
-                    <p class="text-white/40 text-sm font-bold uppercase tracking-widest">Loading services...</p>
+            <div v-if="subStore.isLoading && subStore.availableServices.length === 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-8 pb-12">
+                <div v-for="i in 6" :key="i" class="bg-white/5 backdrop-blur-md p-6 sm:p-8 rounded-3xl border border-white/5 shadow-sm">
+                    <div class="flex items-center gap-4 mb-6">
+                        <Skeleton width="4rem" height="4rem" radius="1rem" />
+                    </div>
+                    <Skeleton width="8rem" height="1.1rem" class="mb-3" />
+                    <Skeleton width="100%" height="0.8rem" class="mb-2" />
+                    <Skeleton width="90%" height="0.8rem" class="mb-8" />
+                    <div class="flex items-center justify-between border-t border-white/5 pt-5">
+                        <Skeleton width="4rem" height="1.4rem" />
+                        <Skeleton width="2.5rem" height="2.5rem" radius="0.75rem" />
+                    </div>
                 </div>
             </div>
 
