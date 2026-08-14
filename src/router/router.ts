@@ -67,6 +67,14 @@ const routes = [
         component: () => import('../views/ResetPassword.vue'),
         meta: { hideNavbar: true, hideFooter: true }
     },
+
+    {
+    path: '/verify-email',
+    name: 'VerifyEmail',
+    component: () => import('../views/VerifyEmail.vue'),
+    meta: { hideNavbar: true, hideFooter: true }
+  },
+
     {
         path: '/dashboard',
         component: () => import('../views/Dashboard.vue'),
