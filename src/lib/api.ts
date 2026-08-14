@@ -1,4 +1,4 @@
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://optimedia-client.onrender.com'
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || ''
 
 export class ApiError extends Error {
   status: number
@@ -44,6 +44,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}) {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...options,
     headers,
+    credentials: 'include',
   })
 
   return parseResponse<T>(response)

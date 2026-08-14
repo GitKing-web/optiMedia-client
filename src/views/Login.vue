@@ -42,6 +42,17 @@ async function handleLogin() {
     if (!hasError) {
         try {
             const res = await authStore.login(identifier.value, password.value)
+
+            const pendingReturn = sessionStorage.getItem('pendingPaystackReturn')
+            const pendingReference = sessionStorage.getItem('pendingPaystackReference')
+
+            if (pendingReturn && pendingReference) {
+                sessionStorage.removeItem('pendingPaystackReturn')
+                sessionStorage.removeItem('pendingPaystackReference')
+                router.replace(pendingReturn)
+                return
+            }
+
             router.push(res.user.role === 'admin' ? '/admin' : '/dashboard')
         } catch {
             submitError.value = authStore.authError || 'Login failed'

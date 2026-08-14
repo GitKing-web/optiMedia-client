@@ -9,6 +9,7 @@ import {
   validateRegisterBody,
 } from '../services/auth.service.ts'
 import { buildDashboard } from '../services/subscription.service.ts'
+import { clearAuthCookie, setAuthCookie } from '../middleware/cookieSession.ts'
 import type { AuthenticatedRequest, LoginBody, RegisterBody } from '../types.ts'
 
 export async function registerController(req: Request & { body: RegisterBody }, res: Response) {
@@ -27,6 +28,7 @@ export async function registerController(req: Request & { body: RegisterBody }, 
     return
   }
 
+  setAuthCookie(res, result.token)
   res.status(201).json({
     token: result.token,
     user: publicUser(result.user),
@@ -46,6 +48,7 @@ export async function loginController(req: Request & { body: LoginBody }, res: R
     return
   }
 
+  setAuthCookie(res, result.token)
   res.json({
     token: result.token,
     user: publicUser(result.user),
@@ -82,6 +85,7 @@ export async function forgotPasswordController(req: Request, res: Response) {
 }
 
 export function logoutController(_req: AuthenticatedRequest, res: Response) {
+  clearAuthCookie(res)
   res.json({ message: 'Logged out successfully.' })
 }
 

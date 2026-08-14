@@ -106,6 +106,24 @@ async function finalizeSuccessfulPayment(paymentReference: string, transaction: 
     return { error: 'Payment reference not found' }
   }
 
+  if (payment.status === 'success') {
+    const existingSubscription = await prisma.subscription.findFirst({
+      where: {
+        userId: user.id,
+        serviceId: payment.serviceId,
+        status: { not: 'expired' },
+      },
+      include: { service: true },
+    })
+
+    return {
+      message: 'Payment was already verified',
+      payment,
+      subscription: existingSubscription,
+      ignored: true,
+    }
+  }
+
   const service = await prisma.service.findUnique({
     where: { id: payment.serviceId },
   })
@@ -256,15 +274,22 @@ export async function verifyPaystackCheckout(user: AuthUser, reference: string) 
   return finalizeSuccessfulPayment(reference, transaction, user)
 }
 
-export async function handlePaystackWebhook(event: PaystackWebhookEvent, signature?: string | null) {
+export async function handlePaystackWebhook(rawBody: string | Buffer, signature?: string | null) {
   const secretKey = getPaystackSecretKey()
   const expected = createHmac('sha512', secretKey)
-  const payload = JSON.stringify(event)
+  const payload = Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : rawBody
   expected.update(payload)
   const digest = expected.digest('hex')
 
   if (!signature || signature !== digest) {
     return { error: 'Invalid webhook signature' }
+  }
+
+  let event: PaystackWebhookEvent
+  try {
+    event = JSON.parse(payload) as PaystackWebhookEvent
+  } catch {
+    return { error: 'Invalid JSON payload' }
   }
 
   if (event.event !== 'charge.success') {

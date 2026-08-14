@@ -1,8 +1,8 @@
 import type { Response } from 'express'
 import { findAuthUserById } from '../services/auth.service.ts'
 import { findService } from '../services/subscription.service.ts'
-import { createPaystackCheckout, verifyPaystackCheckout } from '../services/payment.service.ts'
-import type { AuthenticatedRequest } from '../types.ts'
+import { createPaystackCheckout, verifyPaystackCheckout, handlePaystackWebhook } from '../services/payment.service.ts'
+import type { AuthenticatedRequest, RawBodyRequest } from '../types.ts'
 
 export async function initializePaystackController(req: AuthenticatedRequest, res: Response) {
   const user = await findAuthUserById(req.auth!.sub)
@@ -40,7 +40,8 @@ export async function verifyPaystackController(req: AuthenticatedRequest, res: R
     return
   }
 
-  const reference = req.params.reference
+  const rawReference = (req.params.reference ?? '').toString().split(',')[0].trim()
+  const reference = rawReference.replace(/[^A-Za-z0-9_.\-]/g, '')
   if (!reference) {
     res.status(400).json({ message: 'reference is required' })
     return
@@ -74,6 +75,26 @@ export async function verifyPaystackController(req: AuthenticatedRequest, res: R
   } catch (error) {
     res.status(502).json({
       message: error instanceof Error ? error.message : 'Unable to verify Paystack payment',
+    })
+  }
+}
+
+export async function paystackWebhookController(req: RawBodyRequest, res: Response) {
+  const signature = req.get('x-paystack-signature') || null
+  const rawBody = req.rawBody || req.body
+
+  try {
+    const result = await handlePaystackWebhook(typeof rawBody === 'string' ? rawBody : JSON.stringify(rawBody), signature)
+
+    if ('error' in result && result.error) {
+      res.status(400).json({ message: result.error })
+      return
+    }
+
+    res.status(200).json(result)
+  } catch (error) {
+    res.status(500).json({
+      message: error instanceof Error ? error.message : 'Unable to process Paystack webhook',
     })
   }
 }

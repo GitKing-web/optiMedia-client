@@ -1,5 +1,7 @@
 import express, { type NextFunction, type Request, type Response } from 'express'
 import cors from 'cors'
+import helmet from 'helmet'
+import cookieParser from 'cookie-parser'
 import dotenv from 'dotenv'
 import authRoutes from './routes/auth.routes.ts'
 import catalogRoutes from './routes/catalog.routes.ts'
@@ -11,7 +13,26 @@ dotenv.config()
 
 const app = express()
 
-app.use(cors())
+app.use(helmet())
+
+const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:3001')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean)
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true)
+        return
+      }
+      callback(new Error('Not allowed by CORS'))
+    },
+    credentials: true,
+  }),
+)
+app.use(cookieParser())
 app.use(
   express.json({
     verify: (req, _res, buffer) => {

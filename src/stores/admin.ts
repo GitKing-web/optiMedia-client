@@ -107,7 +107,7 @@ export const useAdminStore = defineStore('admin', () => {
     const filteredUsers = computed(() => users.value)
 
     async function fetchUsers(tab: typeof activeTab.value = activeTab.value) {
-        if (!authStore.token) {
+        if (!authStore.isAuthenticated) {
             users.value = []
             return []
         }
@@ -116,9 +116,7 @@ export const useAdminStore = defineStore('admin', () => {
         error.value = null
 
         try {
-            const response = await apiFetch<AdminUsersResponse>(`/api/admin/users?tab=${tab}`, {
-                authToken: authStore.token
-            })
+            const response = await apiFetch<AdminUsersResponse>(`/api/admin/users?tab=${tab}`)
 
             summary.value = response.summary
             users.value = response.users
@@ -136,7 +134,7 @@ export const useAdminStore = defineStore('admin', () => {
     }
 
     async function fetchSummary() {
-        if (!authStore.token) {
+        if (!authStore.isAuthenticated) {
             summary.value = {
                 totalUsers: 0,
                 activeCount: 0,
@@ -146,24 +144,21 @@ export const useAdminStore = defineStore('admin', () => {
             return summary.value
         }
 
-        const response = await apiFetch<AdminSummary>('/api/admin/stats', {
-            authToken: authStore.token
-        })
+        const response = await apiFetch<AdminSummary>('/api/admin/stats')
 
         summary.value = response
         return response
     }
 
     async function activateSubscription(userId: string) {
-        if (!authStore.token) {
+        if (!authStore.isAuthenticated) {
             throw new Error('You must be logged in as an admin')
         }
 
         const response = await apiFetch<{ row: AdminUserRow; message: string }>(
             `/api/admin/users/${userId}/activate`,
             {
-                method: 'POST',
-                authToken: authStore.token
+                method: 'POST'
             }
         )
 
@@ -177,13 +172,11 @@ export const useAdminStore = defineStore('admin', () => {
     }
 
     async function fetchUserDetail(userId: string) {
-        if (!authStore.token) return null
+        if (!authStore.isAuthenticated) return null
 
         isDetailLoading.value = true
         try {
-            const response = await apiFetch<{ user: UserDetail }>(`/api/admin/users/${userId}/detail`, {
-                authToken: authStore.token
-            })
+            const response = await apiFetch<{ user: UserDetail }>(`/api/admin/users/${userId}/detail`)
             selectedUserDetail.value = response.user
             return response.user
         } catch {
@@ -194,13 +187,13 @@ export const useAdminStore = defineStore('admin', () => {
     }
 
     async function bulkActivate(userIds: string[]) {
-        if (!authStore.token) throw new Error('Unauthorized')
+        if (!authStore.isAuthenticated) throw new Error('Unauthorized')
 
         bulkActivating.value = true
         try {
             const response = await apiFetch<{ message: string; results: Array<{ userId: string; success: boolean; error?: string }> }>(
                 '/api/admin/users/bulk-activate',
-                { method: 'POST', authToken: authStore.token, body: JSON.stringify({ userIds }) }
+                { method: 'POST', body: JSON.stringify({ userIds }) }
             )
             await refresh()
             return response
@@ -210,11 +203,10 @@ export const useAdminStore = defineStore('admin', () => {
     }
 
     async function fetchRevenue() {
-        if (!authStore.token) return
+        if (!authStore.isAuthenticated) return
         try {
             const response = await apiFetch<{ months: RevenueMonth[]; totalRevenue: number }>(
-                '/api/admin/revenue',
-                { authToken: authStore.token }
+                '/api/admin/revenue'
             )
             revenueMonths.value = response.months
             totalRevenue.value = response.totalRevenue
@@ -223,13 +215,11 @@ export const useAdminStore = defineStore('admin', () => {
     }
 
     async function fetchSubscriptionLogs() {
-        if (!authStore.token) return
+        if (!authStore.isAuthenticated) return
 
         isLogsLoading.value = true
         try {
-            const response = await apiFetch<{ logs: SubscriptionLog[] }>('/api/admin/logs', {
-                authToken: authStore.token
-            })
+            const response = await apiFetch<{ logs: SubscriptionLog[] }>('/api/admin/logs')
             subscriptionLogs.value = response.logs
         } catch {
         } finally {
@@ -238,10 +228,10 @@ export const useAdminStore = defineStore('admin', () => {
     }
 
     async function downloadCSV() {
-        if (!authStore.token) return
+        if (!authStore.isAuthenticated) return
         try {
             const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/admin/export/csv`, {
-                headers: { Authorization: `Bearer ${authStore.token}` }
+                credentials: 'include'
             })
             if (!response.ok) throw new Error('Failed to export')
             const blob = await response.blob()
@@ -258,11 +248,12 @@ export const useAdminStore = defineStore('admin', () => {
     }
 
     async function sendEmail(payload: { subject: string; html: string; userIds?: string[] }) {
-        if (!authStore.token) throw new Error('Unauthorized')
+        if (!authStore.isAuthenticated) throw new Error('Unauthorized')
+
 
         return apiFetch<{ sent: number; failed: number; total: number }>(
             '/api/admin/send-email',
-            { method: 'POST', authToken: authStore.token, body: JSON.stringify(payload) }
+            { method: 'POST', body: JSON.stringify(payload) }
         )
     }
 

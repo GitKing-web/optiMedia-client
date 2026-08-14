@@ -2,10 +2,12 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSubscriptionStore } from '../stores/subscription'
+import { useAuthStore } from '../stores/auth'
 
 const route = useRoute()
 const router = useRouter()
 const subStore = useSubscriptionStore()
+const authStore = useAuthStore()
 const isRedirecting = ref(false)
 const statusMessage = ref('')
 
@@ -26,19 +28,36 @@ onMounted(async () => {
         await subStore.fetchServices().catch(() => null)
     }
 
-    const reference = String(route.query.reference || route.query.trxref || '')
-    if (reference) {
-        try {
-            isRedirecting.value = true
-            statusMessage.value = 'Verifying your Paystack payment...'
-            await subStore.verifyPaystackCheckout(reference)
-            statusMessage.value = 'Payment verified. Taking you to your dashboard...'
-            router.replace('/dashboard')
-        } catch {
-            statusMessage.value = 'We could not confirm the payment yet. Please contact support if you were charged.'
-        } finally {
-            isRedirecting.value = false
-        }
+    const rawReference = route.query.reference || route.query.trxref || ''
+    const reference = (Array.isArray(rawReference) ? rawReference[0] : String(rawReference)).split(',')[0].trim()
+    if (!reference) return
+
+    if (!authStore.isHydrated) {
+        await authStore.fetchCurrentUser().catch(() => null)
+    }
+
+    if (!authStore.isAuthenticated) {
+        sessionStorage.setItem('pendingPaystackReference', reference)
+        sessionStorage.setItem('pendingPaystackReturn', route.fullPath)
+        statusMessage.value = 'Please log in to confirm your payment.'
+        router.replace('/login')
+        return
+    }
+
+    try {
+        isRedirecting.value = true
+        statusMessage.value = 'Verifying your Paystack payment...'
+        await subStore.verifyPaystackCheckout(reference)
+        sessionStorage.removeItem('pendingPaystackReference')
+        statusMessage.value = 'Payment verified. Taking you to your dashboard...'
+        router.replace('/dashboard')
+    } catch (error) {
+        const message = error instanceof Error ? error.message : ''
+        statusMessage.value = message
+            ? `We could not confirm the payment yet (${message}). Please contact support if you were charged.`
+            : 'We could not confirm the payment yet. Please contact support if you were charged.'
+    } finally {
+        isRedirecting.value = false
     }
 })
 
@@ -47,11 +66,20 @@ async function handleSubscribe() {
 
     try {
         isRedirecting.value = true
-        statusMessage.value = 'Redirecting to Paystack checkout...'
+        statusMessage.value = 'Starting checkout...'
+
+        if (!authStore.isAuthenticated && !authStore.isHydrated) {
+            await authStore.fetchCurrentUser().catch(() => null)
+        }
+
         const response = await subStore.initializePaystackCheckout(matchedService.value)
         window.location.assign(response.authorizationUrl)
-    } catch {
-        statusMessage.value = 'Unable to start checkout right now.'
+    } catch (error) {
+        const message = error instanceof Error ? error.message : ''
+        statusMessage.value =
+            message && !message.includes('logged in')
+                ? `Unable to start checkout right now. ${message ? `(${message})` : ''}`
+                : 'Please make sure you are logged in, then try again.'
         isRedirecting.value = false
     }
 }

@@ -15,11 +15,11 @@ onMounted(async () => {
     isLoading.value = false
   }, 1500)
 
-  if (authStore.token && !authStore.isHydrated) {
+  if (!authStore.isHydrated) {
     try {
       await authStore.fetchCurrentUser()
     } catch {
-      // Session will be cleared by the store if invalid.
+      // No session (or invalid session); store resets state.
     }
   }
 })

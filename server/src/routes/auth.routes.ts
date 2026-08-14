@@ -8,13 +8,14 @@ import {
   resetPasswordController,
 } from '../controllers/auth.controller.ts'
 import { requireAuth } from '../middleware/auth.middleware.ts'
+import { authRateLimiter, loginRateLimiter, passwordResetRateLimiter } from '../middleware/rateLimit.ts'
 
 const router = Router()
 
-router.post('/register', registerController)
-router.post('/login', loginController)
-router.post('/forgot-password', forgotPasswordController)
-router.post('/reset-password', resetPasswordController)
+router.post('/register', authRateLimiter, registerController)
+router.post('/login', loginRateLimiter, loginController)
+router.post('/forgot-password', passwordResetRateLimiter, forgotPasswordController)
+router.post('/reset-password', passwordResetRateLimiter, resetPasswordController)
 router.get('/me', requireAuth, meController)
 router.post('/logout', requireAuth, logoutController)
 

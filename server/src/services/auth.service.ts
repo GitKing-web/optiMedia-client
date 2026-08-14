@@ -4,9 +4,9 @@ import { randomBytes } from 'node:crypto'
 import { Resend } from 'resend'
 import { prisma } from '../db/prisma.ts'
 import { normalizeEmail, normalizePhoneDigits, normalizeWhatsApp } from '../utils.ts'
+import { JWT_SECRET } from '../config.ts'
 import type { AuthUser, JwtPayload, LoginBody, RegisterBody } from '../types.ts'
 
-const JWT_SECRET = process.env.JWT_SECRET || ''
 const BCRYPT_ROUNDS = 10
 const RESET_TOKEN_EXPIRY_HOURS = 1
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3001'

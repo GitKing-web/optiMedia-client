@@ -129,7 +129,7 @@ export const useSubscriptionStore = defineStore('subscription', () => {
     }
 
     async function fetchDashboard() {
-        if (!authStore.token) {
+        if (!authStore.isAuthenticated) {
             activeSubscriptions.value = []
             activities.value = []
             metrics.value = null
@@ -140,9 +140,7 @@ export const useSubscriptionStore = defineStore('subscription', () => {
         error.value = null
 
         try {
-            const response = await apiFetch<DashboardResponse>('/api/dashboard', {
-                authToken: authStore.token
-            })
+            const response = await apiFetch<DashboardResponse>('/api/dashboard')
 
             metrics.value = response.metrics
             activities.value = response.activities
@@ -162,27 +160,24 @@ export const useSubscriptionStore = defineStore('subscription', () => {
     }
 
     async function fetchSubscriptions() {
-        if (!authStore.token) {
+        if (!authStore.isAuthenticated) {
             activeSubscriptions.value = []
             return []
         }
 
-        const response = await apiFetch<{ subscriptions: DashboardResponse['subscriptions'] }>('/api/subscriptions', {
-            authToken: authStore.token
-        })
+        const response = await apiFetch<{ subscriptions: DashboardResponse['subscriptions'] }>('/api/subscriptions')
 
         activeSubscriptions.value = response.subscriptions.map(mapSubscription)
         return activeSubscriptions.value
     }
 
     async function requestSubscription(service: Service) {
-        if (!authStore.token) {
+        if (!authStore.isAuthenticated) {
             throw new Error('You must be logged in to request a subscription')
         }
 
         const response = await apiFetch<RequestSubscriptionResponse>('/api/subscriptions/request', {
             method: 'POST',
-            authToken: authStore.token,
             body: JSON.stringify({ serviceId: service.id })
         })
 
@@ -199,25 +194,22 @@ export const useSubscriptionStore = defineStore('subscription', () => {
     }
 
     async function initializePaystackCheckout(service: Service) {
-        if (!authStore.token) {
+        if (!authStore.isAuthenticated) {
             throw new Error('You must be logged in to continue')
         }
 
         return apiFetch<PaystackInitializationResponse>('/api/payments/paystack/initialize', {
             method: 'POST',
-            authToken: authStore.token,
             body: JSON.stringify({ serviceId: service.id })
         })
     }
 
     async function verifyPaystackCheckout(reference: string) {
-        if (!authStore.token) {
+        if (!authStore.isAuthenticated) {
             throw new Error('You must be logged in to continue')
         }
 
-        const response = await apiFetch<PaystackVerificationResponse>(`/api/payments/paystack/verify/${reference}`, {
-            authToken: authStore.token
-        })
+        const response = await apiFetch<PaystackVerificationResponse>(`/api/payments/paystack/verify/${reference}`)
 
         await refreshAll().catch(() => null)
         return response

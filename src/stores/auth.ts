@@ -23,37 +23,28 @@ interface MeResponse {
 
 export const useAuthStore = defineStore('auth', () => {
     const user = ref<UserProfile | null>(null)
-    const token = ref<string | null>(localStorage.getItem('token'))
     const isAdmin = ref(false)
     const isHydrated = ref(false)
     const isLoading = ref(false)
     const authError = ref<string | null>(null)
 
-    const isAuthenticated = computed(() => !!token.value)
+    let fetchingUser = false
+    let currentUserPromise: Promise<UserProfile | null> | null = null
+
+    const isAuthenticated = computed(() => !!user.value)
 
     function setUser(profile: UserProfile, administrative: boolean = false) {
         user.value = profile
-        isAdmin.value = administrative
-    }
-
-    function setToken(newToken: string | null) {
-        token.value = newToken
-        if (newToken) {
-            localStorage.setItem('token', newToken)
-        } else {
-            localStorage.removeItem('token')
-        }
+        isAdmin.value = administrative || profile.role === 'admin'
     }
 
     async function logout() {
         try {
-            await apiFetch('/api/auth/logout', { method: 'POST', authToken: token.value })
+            await apiFetch('/api/auth/logout', { method: 'POST' })
         } catch {
         }
         user.value = null
-        token.value = null
         isAdmin.value = false
-        localStorage.removeItem('token')
     }
 
     async function login(identifier: string, password: string) {
@@ -66,7 +57,6 @@ export const useAuthStore = defineStore('auth', () => {
                 body: JSON.stringify({ identifier, password })
             })
 
-            setToken(response.token)
             setUser(response.user, response.user.role === 'admin')
             isHydrated.value = true
             return response
@@ -92,7 +82,6 @@ export const useAuthStore = defineStore('auth', () => {
                 body: JSON.stringify(payload)
             })
 
-            setToken(response.token)
             setUser(response.user, response.user.role === 'admin')
             isHydrated.value = true
             return response
@@ -108,40 +97,44 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
-    async function fetchCurrentUser() {
-        if (!token.value) {
-            isHydrated.value = true
-            return null
-        }
-
+    async function fetchCurrentUser(): Promise<UserProfile | null> {
+        if (fetchingUser && currentUserPromise) return currentUserPromise
+        fetchingUser = true
         isLoading.value = true
 
-        try {
-            const response = await apiFetch<MeResponse>('/api/auth/me', {
-                authToken: token.value
-            })
+        const promise = (async (): Promise<UserProfile | null> => {
+            try {
+                const response = await apiFetch<MeResponse>('/api/auth/me')
 
-            setUser(response.user, response.user.role === 'admin')
-            return response.user
-        } catch (error) {
-            logout()
-            throw error
+                setUser(response.user, response.user.role === 'admin')
+                return response.user
+            } catch (error) {
+                user.value = null
+                isAdmin.value = false
+                throw error
+            } finally {
+                isLoading.value = false
+                isHydrated.value = true
+            }
+        })()
+
+        currentUserPromise = promise
+        try {
+            return await promise
         } finally {
-            isLoading.value = false
-            isHydrated.value = true
+            currentUserPromise = null
+            fetchingUser = false
         }
     }
 
     return {
         user,
-        token,
         isAdmin,
         isAuthenticated,
         isLoading,
         isHydrated,
         authError,
         setUser,
-        setToken,
         login,
         register,
         fetchCurrentUser,

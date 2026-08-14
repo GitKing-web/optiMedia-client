@@ -102,7 +102,7 @@ router.beforeEach(async (to) => {
     const needsAdmin = to.matched.some((record) => record.meta.requiresAdmin)
     const guestOnly = to.matched.some((record) => record.meta.guestOnly)
 
-    if (!authStore.isHydrated && authStore.token) {
+    if (!authStore.isHydrated) {
         try {
             await authStore.fetchCurrentUser()
         } catch {
