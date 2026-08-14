@@ -29,7 +29,8 @@ onMounted(async () => {
     }
 
     const rawReference = route.query.reference || route.query.trxref || ''
-    const reference = (Array.isArray(rawReference) ? rawReference[0] : String(rawReference)).split(',')[0].trim()
+    const firstValue = Array.isArray(rawReference) ? rawReference[0] : rawReference
+    const reference = String(firstValue ?? '').split(',')[0].trim()
     if (!reference) return
 
     if (!authStore.isHydrated) {
