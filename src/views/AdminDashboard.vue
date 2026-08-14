@@ -13,6 +13,7 @@ const searchQuery = ref('')
 const selectedRow = ref<AdminUserRow | null>(null)
 const showUserModal = ref(false)
 const selectedIds = ref<Set<string>>(new Set())
+const activatingId = ref<string | null>(null)
 
 // Computed directly from users array to prevent stale/incorrect summary counts from the store
 const totalUsersCount = computed(() => adminStore.users.length || adminStore.summary.totalUsers)
@@ -76,6 +77,16 @@ async function bulkActivate() {
     if (selectedIds.value.size === 0) return
     await adminStore.bulkActivate(Array.from(selectedIds.value))
     selectedIds.value = new Set()
+}
+
+async function activateUser(userId: string) {
+    if (activatingId.value) return
+    activatingId.value = userId
+    try {
+        await adminStore.activateSubscription(userId)
+    } finally {
+        activatingId.value = null
+    }
 }
 
 function getDaysRemaining(expireDateStr?: string) {
@@ -305,9 +316,11 @@ async function handleLogout() {
                                             <span v-else class="text-xs text-white/20 font-bold">--</span>
                                         </td>
                                         <td class="py-4 px-4 sm:px-5 text-right whitespace-nowrap">
-                                            <button v-if="user.status === 'pending'" @click="adminStore.activateSubscription(user.userId)"
-                                                class="bg-emerald-500 text-white px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all active:scale-95">
-                                                Activate
+                                            <button v-if="user.status === 'pending'" @click="activateUser(user.userId)"
+                                                :disabled="activatingId !== null"
+                                                class="bg-emerald-500 text-white px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed min-w-[5.5rem] inline-flex items-center justify-center gap-2">
+                                                <i v-if="activatingId === user.userId" class="fa-solid fa-spinner fa-spin"></i>
+                                                {{ activatingId === user.userId ? 'Activating...' : 'Activate' }}
                                             </button>
                                             <button v-else @click="openUserDetail(user)"
                                                 class="bg-white/5 text-white/60 px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
