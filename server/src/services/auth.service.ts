@@ -1,17 +1,17 @@
 import * as bcrypt from 'bcrypt'
 import * as jwt from 'jsonwebtoken'
 import { randomBytes } from 'node:crypto'
-import { Resend } from 'resend'
 import { prisma } from '../db/prisma.ts'
 import { normalizeEmail, normalizePhoneDigits, normalizeWhatsApp } from '../utils.ts'
 import { JWT_SECRET } from '../config.ts'
+import { getClientUrl } from '../config.ts'
+import { getEmailSender, getResend } from './email.service.ts'
 import type { AuthUser, JwtPayload, LoginBody, RegisterBody } from '../types.ts'
 
 const BCRYPT_ROUNDS = 10
 const RESET_TOKEN_EXPIRY_HOURS = 1
-const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3001'
-
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
+const CLIENT_URL = getClientUrl()
+const resend = getResend()
 
 export function publicUser(user: AuthUser) {
   return {
@@ -139,21 +139,25 @@ export async function forgotPassword(email: string) {
   const resetLink = `${CLIENT_URL}/reset-password?token=${token}`
 
   if (resend) {
-    await resend.emails.send({
-      from: 'OptiMedia <noreply@optimedia.local>',
-      to: normalized,
-      subject: 'Reset your OptiMedia password',
-      html: `
-        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;">
-          <h2 style="color:#1e293b;">Reset your password</h2>
-          <p style="color:#475569;">Click the link below to reset your password. This link expires in 1 hour.</p>
-          <a href="${resetLink}" style="display:inline-block;background:#6366f1;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;margin:16px 0;">
-            Reset Password
-          </a>
-          <p style="color:#94a3b8;font-size:12px;">If you didn't request this, you can safely ignore this email.</p>
-        </div>
-      `,
-    })
+    try {
+      await resend.emails.send({
+        from: getEmailSender(),
+        to: normalized,
+        subject: 'Reset your OptiMedia password',
+        html: `
+          <div style="font-family:sans-serif;max-width:480px;margin:0 auto;">
+            <h2 style="color:#1e293b;">Reset your password</h2>
+            <p style="color:#475569;">Click the link below to reset your password. This link expires in 1 hour.</p>
+            <a href="${resetLink}" style="display:inline-block;background:#6366f1;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;margin:16px 0;">
+              Reset Password
+            </a>
+            <p style="color:#94a3b8;font-size:12px;">If you didn't request this, you can safely ignore this email.</p>
+          </div>
+        `,
+      })
+    } catch (error) {
+      console.error('Failed to send password reset email:', error)
+    }
   }
 
   return { message: 'If an account with that email exists, a reset link has been sent.' }

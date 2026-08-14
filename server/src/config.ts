@@ -8,6 +8,10 @@ export const JWT_SECRET: string = (() => {
   return value
 })()
 
+export const RESEND_API_KEY = process.env.RESEND_API_KEY || ''
+
+export const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || ''
+
 export const NODE_ENV = process.env.NODE_ENV || 'development'
 
 export const isProduction = NODE_ENV === 'production'

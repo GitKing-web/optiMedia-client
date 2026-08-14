@@ -1,9 +1,7 @@
-import { Resend } from 'resend'
 import { prisma } from '../db/prisma.ts'
 import { money } from '../utils.ts'
+import { getEmailSender, getResend, isEmailConfigured } from './email.service.ts'
 import type { AdminRow } from '../types.ts'
-
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 
 function daysRemaining(expireDate?: Date | null) {
   if (!expireDate) return 0
@@ -403,9 +401,12 @@ export async function exportUsersCSV() {
 }
 
 export async function sendEmailBroadcast(payload: { subject: string; html: string; userIds?: string[] }) {
-  if (!resend) {
-    return { error: 'Resend is not configured. Set RESEND_API_KEY.' }
+  if (!isEmailConfigured()) {
+    return { error: 'Resend is not configured. Set RESEND_API_KEY and RESEND_FROM_EMAIL.' }
   }
+
+  const resend = getResend()!
+  const from = getEmailSender()
 
   let users
   if (payload.userIds && payload.userIds.length > 0) {
@@ -430,7 +431,7 @@ export async function sendEmailBroadcast(payload: { subject: string; html: strin
   for (const email of emails) {
     try {
       await resend.emails.send({
-        from: 'OptiMedia <noreply@optimedia.local>',
+        from,
         to: [email],
         subject: payload.subject,
         html: payload.html,
