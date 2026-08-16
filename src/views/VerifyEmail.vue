@@ -37,7 +37,7 @@ const startResendTimer = () => {
   }, 1000)
 }
 
-onMounted(() => {
+onMounted(async () => {
   // Grab email from router query (e.g. /verify-email?email=user@example.com) or auth store
   userEmail.value = (route.query.email as string) || authStore.user?.email || ''
   startResendTimer()
@@ -46,6 +46,18 @@ onMounted(() => {
   setTimeout(() => {
     inputRefs.value[0]?.focus()
   }, 100)
+
+  // Ensure a fresh verification code is on its way so the user can verify right away.
+  if (authStore.isAuthenticated && !authStore.user?.emailVerified && !userEmail.value) {
+    userEmail.value = authStore.user?.email || ''
+  }
+  if (authStore.isAuthenticated && !authStore.user?.emailVerified) {
+    try {
+      await authStore.sendVerificationOtp()
+    } catch (e: any) {
+      errorMessage.value = e?.message || 'We could not send a verification code. Please try resend.'
+    }
+  }
 })
 
 // Handle typing & auto-advancing focus

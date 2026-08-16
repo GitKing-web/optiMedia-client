@@ -125,11 +125,19 @@ router.beforeEach(async (to) => {
     }
 
     if (guestOnly && authStore.isAuthenticated) {
+        if (!authStore.isAdmin && !authStore.user?.emailVerified) {
+            return { path: '/verify-email', query: { email: authStore.user?.email } }
+        }
         return authStore.isAdmin ? '/admin' : '/dashboard'
     }
 
     if (needsAuth && !authStore.isAuthenticated) {
         return '/login'
+    }
+
+    // Require email verification before accessing protected (authenticated) areas.
+    if (needsAuth && authStore.isAuthenticated && !authStore.isAdmin && !authStore.user?.emailVerified) {
+        return { path: '/verify-email', query: { email: authStore.user?.email } }
     }
 
     if (needsAdmin && !authStore.isAdmin) {

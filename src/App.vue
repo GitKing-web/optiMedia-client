@@ -9,8 +9,6 @@ const route = useRoute()
 const isReady = ref(false)
 const authStore = useAuthStore()
 
-// Keep the app on the loading screen until the session is resolved (hydration done),
-// so we never flash an empty header/footer-only page for logged-in users.
 watch(
     () => authStore.isHydrated,
     (hydrated) => {

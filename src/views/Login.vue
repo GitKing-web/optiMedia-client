@@ -60,6 +60,11 @@ async function handleLogin() {
     try {
         const res = await authStore.login(identifier.value.trim(), password.value)
 
+        if (res.user.role !== 'admin' && !res.user.emailVerified) {
+            router.replace({ path: '/verify-email', query: { email: res.user.email } })
+            return
+        }
+
         const pendingReturn = sessionStorage.getItem('pendingPaystackReturn')
         const pendingReference = sessionStorage.getItem('pendingPaystackReference')
 
