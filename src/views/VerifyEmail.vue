@@ -116,7 +116,7 @@ const verifyOtp = async () => {
   successMessage.value = ''
 
   try {
-    await authStore.verifyEmail(userEmail.value, code)
+    await authStore.verifyEmail(code)
     successMessage.value = 'Email verified successfully! Redirecting...'
     setTimeout(() => {
       router.push('/dashboard')

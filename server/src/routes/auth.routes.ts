@@ -19,7 +19,7 @@ router.post('/login', loginRateLimiter, loginController)
 router.post('/forgot-password', passwordResetRateLimiter, forgotPasswordController)
 router.post('/reset-password', passwordResetRateLimiter, resetPasswordController)
 router.post('/send-otp', requireAuth, authRateLimiter, sendOtpController)
-router.post('/verify-email', authRateLimiter, verifyEmailController)
+router.post('/verify-email', requireAuth, authRateLimiter, verifyEmailController)
 router.get('/me', requireAuth, meController)
 router.post('/logout', requireAuth, logoutController)
 

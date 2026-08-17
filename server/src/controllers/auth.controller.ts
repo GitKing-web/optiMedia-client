@@ -123,16 +123,15 @@ export async function sendOtpController(req: AuthenticatedRequest, res: Response
   res.json(result)
 }
 
-export async function verifyEmailController(req: Request, res: Response) {
-  const email = typeof req.body?.email === 'string' ? req.body.email.trim() : ''
+export async function verifyEmailController(req: AuthenticatedRequest, res: Response) {
   const code = typeof req.body?.code === 'string' ? req.body.code.trim() : ''
 
-  if (!email || !code) {
-    res.status(400).json({ message: 'Email and code are required.' })
+  if (!code) {
+    res.status(400).json({ message: 'Verification code is required.' })
     return
   }
 
-  const result = await verifyEmailOtp(email, code)
+  const result = await verifyEmailOtp(req.auth!.sub, code)
   if ('error' in result) {
     res.status(400).json({ message: result.error })
     return
