@@ -1,6 +1,6 @@
 import { prisma } from '../db/prisma.ts'
 import { money } from '../utils.ts'
-import { getEmailSender, getResend, isEmailConfigured } from './email.service.ts'
+import { getEmailSender, getReplyTo, getResend, htmlToPlainText, isEmailConfigured, wrapInEmailTemplate } from './email.service.ts'
 import type { AdminRow } from '../types.ts'
 
 function daysRemaining(expireDate?: Date | null) {
@@ -407,6 +407,9 @@ export async function sendEmailBroadcast(payload: { subject: string; html: strin
 
   const resend = getResend()!
   const from = getEmailSender()
+  const replyTo = getReplyTo()
+  const wrappedHtml = wrapInEmailTemplate(payload.html, payload.subject)
+  const plainText = htmlToPlainText(payload.html)
 
   let users
   if (payload.userIds && payload.userIds.length > 0) {
@@ -420,27 +423,47 @@ export async function sendEmailBroadcast(payload: { subject: string; html: strin
     })
   }
 
-  const emails = users.map((u) => u.email).filter(Boolean) as string[]
-  if (emails.length === 0) {
+  const recipients = users.filter((u) => u.email) as { email: string; name: string }[]
+  if (recipients.length === 0) {
     return { error: 'No recipients found.' }
   }
 
-  const errors: string[] = []
+  const BATCH_SIZE = 100
   let sent = 0
+  const errors: string[] = []
 
-  for (const email of emails) {
+  for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
+    const batch = recipients.slice(i, i + BATCH_SIZE)
+
+    const emailPayloads = batch.map((user) => ({
+      from,
+      to: [user.email],
+      subject: payload.subject,
+      html: wrappedHtml,
+      text: plainText,
+      reply_to: replyTo,
+      headers: {
+        'List-Unsubscribe': `<mailto:support@optimedia.solution.com?subject=unsubscribe>`,
+        'X-Mailer': 'OptiMedia',
+        'Precedence': 'bulk',
+      },
+    }))
+
     try {
-      await resend.emails.send({
-        from,
-        to: [email],
-        subject: payload.subject,
-        html: payload.html,
-      })
-      sent++
+      const result = await resend.batch.send(emailPayloads)
+      if (result.data) {
+        sent += batch.length
+      } else {
+        for (const user of batch) {
+          errors.push(user.email)
+        }
+      }
     } catch {
-      errors.push(email)
+      for (const user of batch) {
+        errors.push(user.email)
+      }
     }
   }
 
-  return { sent, failed: errors.length, total: emails.length }
+  return { sent, failed: errors.length, total: recipients.length }
 }

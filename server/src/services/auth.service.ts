@@ -5,7 +5,7 @@ import { prisma } from '../db/prisma.ts'
 import { normalizeEmail, normalizePhoneDigits, normalizeWhatsApp } from '../utils.ts'
 import { JWT_SECRET } from '../config.ts'
 import { getClientUrl } from '../config.ts'
-import { getEmailSender, getResend, sendVerificationEmail } from './email.service.ts'
+import { getEmailSender, getReplyTo, getResend, htmlToPlainText, sendVerificationEmail, wrapInEmailTemplate } from './email.service.ts'
 import type { AuthUser, JwtPayload, LoginBody, RegisterBody } from '../types.ts'
 
 const BCRYPT_ROUNDS = 10
@@ -215,20 +215,32 @@ export async function forgotPassword(email: string) {
 
   if (resend) {
     try {
+      const html = `
+        <h2 style="margin:0 0 16px;font-size:24px;font-weight:700;color:#1e293b;">Reset your password</h2>
+        <p style="margin:0 0 24px;font-size:16px;color:#475569;line-height:1.6;">
+          Click the link below to reset your password. This link expires in 1 hour.
+        </p>
+        <div style="text-align:center;margin:24px 0;">
+          <a href="${resetLink}" style="display:inline-block;background:#6366f1;color:#ffffff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:16px;">
+            Reset Password
+          </a>
+        </div>
+        <p style="margin:24px 0 0;font-size:13px;color:#94a3b8;line-height:1.6;">
+          If you didn't request this, you can safely ignore this email.
+        </p>
+      `
+      const plainText = `Reset your password\n\nClick the link below to reset your password. This link expires in 1 hour.\n\n${resetLink}\n\nIf you didn't request this, you can safely ignore this email.`
+
       await resend.emails.send({
         from: getEmailSender(),
-        to: normalized,
+        to: [normalized],
         subject: 'Reset your OptiMedia password',
-        html: `
-          <div style="font-family:sans-serif;max-width:480px;margin:0 auto;">
-            <h2 style="color:#1e293b;">Reset your password</h2>
-            <p style="color:#475569;">Click the link below to reset your password. This link expires in 1 hour.</p>
-            <a href="${resetLink}" style="display:inline-block;background:#6366f1;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:700;margin:16px 0;">
-              Reset Password
-            </a>
-            <p style="color:#94a3b8;font-size:12px;">If you didn't request this, you can safely ignore this email.</p>
-          </div>
-        `,
+        html: wrapInEmailTemplate(html, 'Click the link to reset your OptiMedia password'),
+        text: plainText,
+        reply_to: getReplyTo(),
+        headers: {
+          'List-Unsubscribe': `<mailto:support@optimedia.solution.com?subject=unsubscribe>`,
+        },
       })
     } catch (error) {
       console.error('Failed to send password reset email:', error)

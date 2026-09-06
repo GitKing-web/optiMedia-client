@@ -12,6 +12,8 @@ export const RESEND_API_KEY = process.env.RESEND_API_KEY || ''
 
 export const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || ''
 
+export const RESEND_REPLY_TO = process.env.RESEND_REPLY_TO || ''
+
 export const NODE_ENV = process.env.NODE_ENV || 'development'
 
 export const isProduction = NODE_ENV === 'production'
