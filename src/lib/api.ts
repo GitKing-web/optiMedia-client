@@ -1,4 +1,4 @@
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://optimedia-client.onrender.com/'
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://optimedia-client.onrender.com'
 
 export class ApiError extends Error {
   status: number
