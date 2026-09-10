@@ -164,4 +164,27 @@ router.beforeEach(async (to) => {
     return true
 })
 
+// A stale cached index.html can point at hashed chunks that were removed by a
+// newer deploy, so a lazy route import fails. Recover by reloading once to pull
+// the fresh HTML (guarded to avoid a reload loop).
+router.onError((error, to) => {
+    const message = String((error as Error)?.message || '')
+    const isChunkLoadError =
+        message.includes('Failed to fetch dynamically imported module') ||
+        message.includes('Importing a module script failed') ||
+        message.includes('error loading dynamically imported module')
+
+    if (!isChunkLoadError) return
+
+    const key = 'optimedia:chunk-reload'
+    if (sessionStorage.getItem(key)) return
+
+    sessionStorage.setItem(key, '1')
+    window.location.assign(to.fullPath || window.location.pathname)
+})
+
+router.afterEach(() => {
+    sessionStorage.removeItem('optimedia:chunk-reload')
+})
+
 export default router
