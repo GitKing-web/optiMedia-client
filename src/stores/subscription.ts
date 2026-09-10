@@ -80,15 +80,16 @@ interface RequestSubscriptionResponse {
     subscription: Subscription
 }
 
-interface PaystackInitializationResponse {
+interface PaymentInitializationResponse {
     message: string
+    provider?: string
     authorizationUrl: string
     reference: string
     months?: number
     amount?: number
 }
 
-interface PaystackVerificationResponse {
+interface PaymentVerificationResponse {
     message: string
     subscription?: Subscription
     payment?: {
@@ -96,6 +97,18 @@ interface PaystackVerificationResponse {
         status: string
         amount: number
     }
+}
+
+export interface CouponValidationResponse {
+    valid: boolean
+    code: string
+    type?: 'percentage' | 'fixed'
+    value?: number
+    discount: number
+    message: string
+    subtotal: number
+    platformFee: number
+    total: number
 }
 
 export const useSubscriptionStore = defineStore('subscription', () => {
@@ -196,23 +209,34 @@ export const useSubscriptionStore = defineStore('subscription', () => {
         return mapped
     }
 
-    async function initializePaystackCheckout(service: Service, months: number = 1) {
+    async function initializeCheckout(service: Service, months: number = 1, couponCode?: string) {
         if (!authStore.isAuthenticated) {
             throw new Error('You must be logged in to continue')
         }
 
-        return apiFetch<PaystackInitializationResponse>('/api/payments/paystack/initialize', {
+        return apiFetch<PaymentInitializationResponse>('/api/payments/initialize', {
             method: 'POST',
-            body: JSON.stringify({ serviceId: service.id, months })
+            body: JSON.stringify({ serviceId: service.id, months, couponCode })
         })
     }
 
-    async function verifyPaystackCheckout(reference: string) {
+    async function validateCoupon(code: string, serviceId: string, months: number) {
         if (!authStore.isAuthenticated) {
             throw new Error('You must be logged in to continue')
         }
 
-        const response = await apiFetch<PaystackVerificationResponse>(`/api/payments/paystack/verify/${reference}`)
+        return apiFetch<CouponValidationResponse>('/api/coupons/validate', {
+            method: 'POST',
+            body: JSON.stringify({ code, serviceId, months })
+        })
+    }
+
+    async function verifyCheckout(reference: string) {
+        if (!authStore.isAuthenticated) {
+            throw new Error('You must be logged in to continue')
+        }
+
+        const response = await apiFetch<PaymentVerificationResponse>(`/api/payments/verify/${reference}`)
 
         await refreshAll().catch(() => null)
         return response
@@ -234,8 +258,9 @@ export const useSubscriptionStore = defineStore('subscription', () => {
         fetchDashboard,
         fetchSubscriptions,
         requestSubscription,
-        initializePaystackCheckout,
-        verifyPaystackCheckout,
+        initializeCheckout,
+        validateCoupon,
+        verifyCheckout,
         refreshAll
     }
 })

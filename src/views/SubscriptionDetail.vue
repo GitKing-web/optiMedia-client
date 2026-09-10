@@ -3,15 +3,22 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSubscriptionStore } from '../stores/subscription'
 import { useAuthStore } from '../stores/auth'
+import { useSiteStore } from '../stores/site'
 
 const route = useRoute()
 const router = useRouter()
 const subStore = useSubscriptionStore()
 const authStore = useAuthStore()
+const siteStore = useSiteStore()
 const isRedirecting = ref(false)
 const statusMessage = ref('')
 const selectedMonths = ref(1)
 const monthOptions = [1, 2, 3]
+
+const couponCode = ref('')
+const appliedCoupon = ref<{ code: string; discount: number } | null>(null)
+const couponMessage = ref<{ type: 'success' | 'error'; text: string } | null>(null)
+const isApplyingCoupon = ref(false)
 
 const serviceNameParam = computed(() => String(route.params.name || '').toLowerCase())
 
@@ -25,20 +32,48 @@ const matchedService = computed(() => {
     })
 })
 
-const totalPrice = computed(() => (matchedService.value ? matchedService.value.price * selectedMonths.value : 0))
+const subtotal = computed(() => (matchedService.value ? matchedService.value.price * selectedMonths.value : 0))
+const platformFee = computed(() => siteStore.platformFee || 0)
+const discount = computed(() => appliedCoupon.value?.discount || 0)
+const totalPrice = computed(() => Math.max(0, subtotal.value - discount.value) + platformFee.value)
 
 const savingsNote = computed(() => {
     if (selectedMonths.value === 1) return 'Billed monthly'
     const months = selectedMonths.value
-    return `₦${(matchedService.value!.price * months).toLocaleString()} upfront · ${months} months of access`
+    return `₦${subtotal.value.toLocaleString()} upfront · ${months} months of access`
 })
+
+async function applyCoupon() {
+    if (!matchedService.value || !couponCode.value.trim()) return
+    isApplyingCoupon.value = true
+    couponMessage.value = null
+    try {
+        const result = await subStore.validateCoupon(couponCode.value.trim(), matchedService.value.id, selectedMonths.value)
+        appliedCoupon.value = { code: result.code, discount: result.discount }
+        couponMessage.value = { type: 'success', text: result.message }
+    } catch (error) {
+        appliedCoupon.value = null
+        couponMessage.value = {
+            type: 'error',
+            text: error instanceof Error ? error.message : 'Unable to apply this coupon.',
+        }
+    } finally {
+        isApplyingCoupon.value = false
+    }
+}
+
+function clearCoupon() {
+    appliedCoupon.value = null
+    couponCode.value = ''
+    couponMessage.value = null
+}
 
 onMounted(async () => {
     if (subStore.availableServices.length === 0) {
         await subStore.fetchServices().catch(() => null)
     }
 
-    const rawReference = route.query.reference || route.query.trxref || ''
+    const rawReference = route.query.reference || route.query.tx_ref || route.query.trxref || ''
     const firstValue = Array.isArray(rawReference) ? rawReference[0] : rawReference
     const reference = String(firstValue ?? '').split(',')[0].trim()
     if (!reference) return
@@ -57,8 +92,8 @@ onMounted(async () => {
 
     try {
         isRedirecting.value = true
-        statusMessage.value = 'Verifying your Paystack payment...'
-        await subStore.verifyPaystackCheckout(reference)
+        statusMessage.value = 'Verifying your payment...'
+        await subStore.verifyCheckout(reference)
         sessionStorage.removeItem('pendingPaystackReference')
         statusMessage.value = 'Payment verified. Taking you to your dashboard...'
         router.replace('/dashboard')
@@ -83,7 +118,7 @@ async function handleSubscribe() {
             await authStore.fetchCurrentUser().catch(() => null)
         }
 
-        const response = await subStore.initializePaystackCheckout(matchedService.value, selectedMonths.value)
+        const response = await subStore.initializeCheckout(matchedService.value, selectedMonths.value, appliedCoupon.value?.code)
         window.location.assign(response.authorizationUrl)
     } catch (error) {
         const message = error instanceof Error ? error.message : ''
@@ -181,6 +216,51 @@ async function handleSubscribe() {
                         <p class="text-[11px] font-bold text-white/40 mt-2">{{ savingsNote }}</p>
                     </div>
 
+                    <!-- Coupon -->
+                    <div class="space-y-2">
+                        <div class="flex gap-2" v-if="!appliedCoupon">
+                            <input v-model="couponCode" @keyup.enter="applyCoupon" placeholder="Coupon code"
+                                class="flex-1 bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm text-white placeholder-white/30 outline-none focus:border-primary/40 uppercase tracking-wider" />
+                            <button type="button" @click="applyCoupon" :disabled="isApplyingCoupon || !couponCode.trim()"
+                                class="bg-white/10 text-white px-5 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-white/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap">
+                                <i v-if="isApplyingCoupon" class="fa-solid fa-spinner fa-spin"></i>
+                                <span v-else>Apply</span>
+                            </button>
+                        </div>
+                        <div v-else class="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
+                            <span class="text-xs font-black uppercase tracking-widest text-emerald-300">
+                                <i class="fa-solid fa-tag mr-1"></i>{{ appliedCoupon.code }} applied
+                            </span>
+                            <button type="button" @click="clearCoupon" class="text-emerald-300/70 hover:text-emerald-200 text-xs font-bold">
+                                Remove
+                            </button>
+                        </div>
+                        <p v-if="couponMessage" class="text-[11px] font-bold"
+                            :class="couponMessage.type === 'success' ? 'text-emerald-300' : 'text-red-400'">
+                            {{ couponMessage.text }}
+                        </p>
+                    </div>
+
+                    <!-- Price breakdown -->
+                    <div class="space-y-2 border-t border-white/10 pt-4">
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-white/50 font-bold">Subtotal</span>
+                            <span class="text-white/80 font-bold">₦{{ subtotal.toLocaleString() }}</span>
+                        </div>
+                        <div v-if="platformFee > 0" class="flex items-center justify-between text-sm">
+                            <span class="text-white/50 font-bold">Platform charge</span>
+                            <span class="text-white/80 font-bold">+₦{{ platformFee.toLocaleString() }}</span>
+                        </div>
+                        <div v-if="discount > 0" class="flex items-center justify-between text-sm">
+                            <span class="text-white/50 font-bold">Coupon discount</span>
+                            <span class="text-emerald-300 font-bold">-₦{{ discount.toLocaleString() }}</span>
+                        </div>
+                        <div class="flex items-center justify-between text-base border-t border-white/10 pt-2">
+                            <span class="text-white font-black uppercase tracking-widest text-xs">Total</span>
+                            <span class="text-white font-black">₦{{ totalPrice.toLocaleString() }}</span>
+                        </div>
+                    </div>
+
                     <div class="space-y-4">
                         <div class="flex items-center gap-3 text-white/70 font-bold text-sm">
                             <i class="fa-solid fa-circle-check text-primary text-lg shrink-0"></i>
@@ -188,7 +268,7 @@ async function handleSubscribe() {
                         </div>
                         <div class="flex items-center gap-3 text-white/70 font-bold text-sm">
                             <i class="fa-solid fa-circle-check text-primary text-lg shrink-0"></i>
-                            <span>Paystack Secure Checkout</span>
+                            <span>Secure Checkout</span>
                         </div>
                         <div class="flex items-center gap-3 text-white/70 font-bold text-sm">
                             <i class="fa-solid fa-circle-check text-primary text-lg shrink-0"></i>

@@ -9,8 +9,10 @@ import {
   getRevenueStats,
   getSubscriptionLogs,
   getUserDetail,
+  getUserRecipients,
   sendEmailBroadcast,
 } from '../services/admin.service.ts'
+import { getPaymentSettingsView, updatePaymentSettings } from '../services/settings.service.ts'
 import type { AuthenticatedRequest } from '../types.ts'
 
 export async function adminStatsController(_req: AuthenticatedRequest, res: Response) {
@@ -19,10 +21,23 @@ export async function adminStatsController(_req: AuthenticatedRequest, res: Resp
 
 export async function adminUsersController(req: AuthenticatedRequest, res: Response) {
   const tab = String(req.query.tab || 'all')
+  const search = String(req.query.search || '')
+  const result = await filterAdminUsers({
+    tab,
+    search,
+    page: req.query.page,
+    pageSize: req.query.pageSize,
+  })
   res.json({
     summary: await buildAdminSummary(),
-    users: await filterAdminUsers(tab),
+    users: result.items,
+    pagination: result.pagination,
   })
+}
+
+export async function adminRecipientsController(req: AuthenticatedRequest, res: Response) {
+  const search = String(req.query.search || '')
+  res.json({ users: await getUserRecipients(search) })
 }
 
 export async function adminUserController(req: AuthenticatedRequest, res: Response) {
@@ -75,8 +90,14 @@ export async function revenueStatsController(_req: AuthenticatedRequest, res: Re
   res.json(await getRevenueStats())
 }
 
-export async function subscriptionLogsController(_req: AuthenticatedRequest, res: Response) {
-  res.json({ logs: await getSubscriptionLogs() })
+export async function subscriptionLogsController(req: AuthenticatedRequest, res: Response) {
+  const search = String(req.query.search || '')
+  const result = await getSubscriptionLogs({
+    search,
+    page: req.query.page,
+    pageSize: req.query.pageSize,
+  })
+  res.json({ logs: result.items, pagination: result.pagination })
 }
 
 export async function exportCSVController(_req: AuthenticatedRequest, res: Response) {
@@ -94,6 +115,20 @@ export async function sendEmailController(req: AuthenticatedRequest, res: Respon
   }
 
   const result = await sendEmailBroadcast({ subject, html, userIds })
+  if ('error' in result) {
+    res.status(400).json({ message: result.error })
+    return
+  }
+
+  res.json(result)
+}
+
+export async function getSettingsController(_req: AuthenticatedRequest, res: Response) {
+  res.json({ settings: await getPaymentSettingsView() })
+}
+
+export async function updateSettingsController(req: AuthenticatedRequest, res: Response) {
+  const result = await updatePaymentSettings(req.body || {})
   if ('error' in result) {
     res.status(400).json({ message: result.error })
     return

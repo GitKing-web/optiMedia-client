@@ -21,9 +21,13 @@ export async function subscribeNewsletterController(req: Request, res: Response)
   res.status(201).json(result)
 }
 
-export async function listNewsletterSubscribersController(_req: Request, res: Response) {
-  const subscribers = await listNewsletterSubscribers()
-  res.json({ subscribers })
+export async function listNewsletterSubscribersController(req: Request, res: Response) {
+  const result = await listNewsletterSubscribers({
+    search: String(req.query.search || ''),
+    page: req.query.page,
+    pageSize: req.query.pageSize,
+  })
+  res.json(result)
 }
 
 export async function removeNewsletterSubscriberController(req: Request, res: Response) {

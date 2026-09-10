@@ -105,6 +105,9 @@ model Payment {
   gateway           String        @default("paystack")
   amount            Int
   months            Int           @default(1)
+  platformFee       Int           @default(0)
+  discount          Int           @default(0)
+  couponCode        String?
   status            PaymentStatus @default(pending)
   authorizationUrl  String?
   accessCode        String?
@@ -120,6 +123,28 @@ model Payment {
   @@index([userId])
   @@index([serviceId])
   @@index([status])
+}
+
+enum CouponType {
+  percentage
+  fixed
+}
+
+model Coupon {
+  id        String     @id @default(cuid())
+  code      String     @unique
+  type      CouponType
+  value     Int
+  active    Boolean    @default(true)
+  minAmount Int?
+  maxUses   Int?
+  usedCount Int        @default(0)
+  expiresAt DateTime?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([code])
+  @@index([active])
 }
 
 model PasswordResetToken {
@@ -204,4 +229,12 @@ model FamilySlot {
   @@unique([familyAccountId, slotNumber])
   @@index([familyAccountId])
   @@index([status])
+}
+
+model PlatformSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@index([key])
 }

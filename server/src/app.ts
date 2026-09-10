@@ -5,9 +5,11 @@ import cookieParser from 'cookie-parser'
 import dotenv from 'dotenv'
 import authRoutes from './routes/auth.routes.ts'
 import catalogRoutes from './routes/catalog.routes.ts'
+import couponRoutes from './routes/coupon.routes.ts'
 import familyRoutes from './routes/family.routes.ts'
 import newsLetterRoutes from './routes/newsletter.routes.ts'
 import paymentRoutes from './routes/payment.routes.ts'
+import siteRoutes from './routes/site.routes.ts'
 import subscriptionRoutes from './routes/subscription.routes.ts'
 import adminRoutes from './routes/admin.routes.ts'
 
@@ -45,6 +47,8 @@ app.get('/health', (_req, res) => {
 
 app.use('/api', catalogRoutes)
 app.use('/api', newsLetterRoutes)
+app.use('/api', siteRoutes)
+app.use('/api', couponRoutes)
 app.use('/api/auth', authRoutes)
 app.use('/api', subscriptionRoutes)
 app.use('/api', paymentRoutes)

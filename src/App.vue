@@ -4,10 +4,12 @@ import { useRoute } from 'vue-router'
 import Navbar from './components/Navbar.vue'
 import LoadingScreen from './components/LoadingScreen.vue'
 import { useAuthStore } from './stores/auth'
+import { useSiteStore } from './stores/site'
 
 const route = useRoute()
 const isReady = ref(false)
 const authStore = useAuthStore()
+const siteStore = useSiteStore()
 
 watch(
     () => authStore.isHydrated,
@@ -20,16 +22,15 @@ watch(
 )
 
 onMounted(async () => {
+    siteStore.fetchSite().catch(() => null)
+
     if (!authStore.isHydrated) {
         try {
             await authStore.fetchCurrentUser()
         } catch {
-            // No session (or invalid session); store resets state.
         }
     }
 
-    // Give the content at least a brief moment to settle for a smoother transition,
-    // but never reveal before hydration is complete.
     if (!isReady.value) {
         isReady.value = true
     }

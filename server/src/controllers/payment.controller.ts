@@ -1,10 +1,18 @@
 import type { Response } from 'express'
 import { findAuthUserById } from '../services/auth.service.ts'
 import { findService } from '../services/subscription.service.ts'
-import { createPaystackCheckout, verifyPaystackCheckout, handlePaystackWebhook } from '../services/payment.service.ts'
+import { createCheckout, verifyCheckout, handleWebhook } from '../services/payment.service.ts'
 import type { AuthenticatedRequest, RawBodyRequest } from '../types.ts'
 
-export async function initializePaystackController(req: AuthenticatedRequest, res: Response) {
+function headerRecord(req: RawBodyRequest): Record<string, string | undefined> {
+  const headers: Record<string, string | undefined> = {}
+  for (const [key, value] of Object.entries(req.headers)) {
+    headers[key.toLowerCase()] = Array.isArray(value) ? value[0] : value
+  }
+  return headers
+}
+
+export async function initializePaymentController(req: AuthenticatedRequest, res: Response) {
   const user = await findAuthUserById(req.auth!.sub)
   if (!user) {
     res.status(404).json({ message: 'User not found' })
@@ -24,18 +32,23 @@ export async function initializePaystackController(req: AuthenticatedRequest, re
   }
 
   const months = req.body?.months
+  const couponCode = req.body?.couponCode
 
   try {
-    const result = await createPaystackCheckout(user, service, months)
+    const result = await createCheckout(user, service, months, couponCode)
+    if ('error' in result && result.error) {
+      res.status(400).json({ message: result.error })
+      return
+    }
     res.json(result)
   } catch (error) {
     res.status(502).json({
-      message: error instanceof Error ? error.message : 'Unable to initialize Paystack checkout',
+      message: error instanceof Error ? error.message : 'Unable to initialize checkout',
     })
   }
 }
 
-export async function verifyPaystackController(req: AuthenticatedRequest, res: Response) {
+export async function verifyPaymentController(req: AuthenticatedRequest, res: Response) {
   const user = await findAuthUserById(req.auth!.sub)
   if (!user) {
     res.status(404).json({ message: 'User not found' })
@@ -50,7 +63,7 @@ export async function verifyPaystackController(req: AuthenticatedRequest, res: R
   }
 
   try {
-    const result = await verifyPaystackCheckout(user, reference)
+    const result = await verifyCheckout(user, reference)
     if ('error' in result && result.error) {
       res.status(400).json({ message: result.error })
       return
@@ -81,17 +94,19 @@ export async function verifyPaystackController(req: AuthenticatedRequest, res: R
     })
   } catch (error) {
     res.status(502).json({
-      message: error instanceof Error ? error.message : 'Unable to verify Paystack payment',
+      message: error instanceof Error ? error.message : 'Unable to verify payment',
     })
   }
 }
 
-export async function paystackWebhookController(req: RawBodyRequest, res: Response) {
-  const signature = req.get('x-paystack-signature') || null
-  const rawBody = req.rawBody || req.body
+async function processWebhook(providerName: string, req: RawBodyRequest, res: Response) {
+  // Prefer the exact raw bytes captured by the JSON body parser; signatures are
+  // computed over the raw payload, never a re-serialized object.
+  const rawBody: string | Buffer =
+    req.rawBody ?? (typeof req.body === 'string' ? req.body : JSON.stringify(req.body))
 
   try {
-    const result = await handlePaystackWebhook(typeof rawBody === 'string' ? rawBody : JSON.stringify(rawBody), signature)
+    const result = await handleWebhook(providerName, rawBody, headerRecord(req))
 
     if ('error' in result && result.error) {
       res.status(400).json({ message: result.error })
@@ -101,8 +116,15 @@ export async function paystackWebhookController(req: RawBodyRequest, res: Respon
     res.status(200).json(result)
   } catch (error) {
     res.status(500).json({
-      message: error instanceof Error ? error.message : 'Unable to process Paystack webhook',
+      message: error instanceof Error ? error.message : 'Unable to process webhook',
     })
   }
 }
 
+export function paystackWebhookController(req: RawBodyRequest, res: Response) {
+  return processWebhook('paystack', req, res)
+}
+
+export function flutterwaveWebhookController(req: RawBodyRequest, res: Response) {
+  return processWebhook('flutterwave', req, res)
+}

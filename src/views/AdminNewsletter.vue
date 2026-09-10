@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import Skeleton from '../components/Skeleton.vue'
+import Pagination from '../components/Pagination.vue'
 import { useAdminStore } from '../stores/admin'
 import { useAuthStore } from '../stores/auth'
 
@@ -11,12 +12,21 @@ const authStore = useAuthStore()
 
 const searchQuery = ref<string>('')
 const confirmRemove = ref<string | null>(null)
+let searchTimer: ReturnType<typeof setTimeout> | null = null
 
-const filteredSubscribers = computed(() => {
-    const q = searchQuery.value.toLowerCase().trim()
-    if (!q) return adminStore.newsletterSubscribers
-    return adminStore.newsletterSubscribers.filter((s) => s.email.toLowerCase().includes(q))
+// Subscribers are filtered + paginated server-side.
+const filteredSubscribers = computed(() => adminStore.newsletterSubscribers)
+
+watch(searchQuery, () => {
+    if (searchTimer) clearTimeout(searchTimer)
+    searchTimer = setTimeout(() => {
+        adminStore.fetchNewsletterSubscribers({ search: searchQuery.value, page: 1 })
+    }, 300)
 })
+
+function changePage(page: number) {
+    adminStore.fetchNewsletterSubscribers({ page })
+}
 
 onMounted(() => {
     adminStore.fetchNewsletterSubscribers()
@@ -75,6 +85,16 @@ async function removeSubscriber(id: string) {
                     <i class="fa-solid fa-users-rectangle text-lg"></i>
                     Family Slots
                 </button>
+                <button @click="router.push('/admin/coupons')"
+                    class="w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold text-sm tracking-tight text-white/40 hover:text-white hover:bg-white/5 transition-all text-left">
+                    <i class="fa-solid fa-tags text-lg"></i>
+                    Coupons
+                </button>
+                <button @click="router.push('/admin/settings')"
+                    class="w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold text-sm tracking-tight text-white/40 hover:text-white hover:bg-white/5 transition-all text-left">
+                    <i class="fa-solid fa-gear text-lg"></i>
+                    Settings
+                </button>
             </nav>
             <div class="mt-auto pt-6 border-t border-white/5 flex flex-col gap-2">
                 <button @click="router.push('/dashboard')"
@@ -125,7 +145,7 @@ async function removeSubscriber(id: string) {
                 class="bg-white/5 backdrop-blur-md rounded-3xl border border-white/10 shadow-xl overflow-hidden">
                 <div class="p-4 sm:p-5 border-b border-white/5 flex items-center justify-between">
                     <p class="text-sm font-black uppercase tracking-widest text-white/60">
-                        {{ filteredSubscribers.length }} subscriber{{ filteredSubscribers.length !== 1 ? 's' : '' }}
+                        {{ adminStore.newsletterPagination.total }} subscriber{{ adminStore.newsletterPagination.total !== 1 ? 's' : '' }}
                     </p>
                     <span class="text-[10px] font-black uppercase tracking-widest text-white/30">
                         Appears in admin email tool &amp; promotions
@@ -173,6 +193,13 @@ async function removeSubscriber(id: string) {
                     Newsletter signups from the homepage will appear here.
                 </p>
             </div>
+
+            <Pagination v-if="!adminStore.isNewsletterLoading && adminStore.newsletterPagination.total > 0"
+                :page="adminStore.newsletterPagination.page"
+                :total-pages="adminStore.newsletterPagination.totalPages"
+                :total="adminStore.newsletterPagination.total"
+                :page-size="adminStore.newsletterPagination.pageSize"
+                @update:page="changePage" />
         </main>
     </div>
 </template>

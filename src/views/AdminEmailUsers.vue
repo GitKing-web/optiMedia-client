@@ -19,17 +19,16 @@ const searchQuery = ref('')
 
 const filteredUsers = computed(() => {
     const q = searchQuery.value.toLowerCase().trim()
-    if (!q) return adminStore.users
-    return adminStore.users.filter(
+    if (!q) return adminStore.recipients
+    return adminStore.recipients.filter(
         (u) =>
             u.userName.toLowerCase().includes(q) ||
-            u.userEmail.toLowerCase().includes(q) ||
-            u.whatsappContact.includes(q),
+            u.userEmail.toLowerCase().includes(q),
     )
 })
 
 const recipientCount = computed(() => {
-    if (mode.value === 'all') return adminStore.users.length
+    if (mode.value === 'all') return adminStore.recipients.length
     return selectedUserIds.value.size
 })
 
@@ -67,8 +66,8 @@ async function send() {
 }
 
 onMounted(() => {
-    if (adminStore.users.length === 0) {
-        adminStore.fetchUsers('all')
+    if (adminStore.recipients.length === 0) {
+        adminStore.fetchRecipients()
     }
 })
 
@@ -117,6 +116,16 @@ async function handleLogout() {
                     <i class="fa-solid fa-users-rectangle text-lg"></i>
                     Family Slots
                 </button>
+                <button @click="router.push('/admin/coupons')"
+                    class="w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold text-sm tracking-tight text-white/40 hover:text-white hover:bg-white/5 transition-all text-left">
+                    <i class="fa-solid fa-tags text-lg"></i>
+                    Coupons
+                </button>
+                <button @click="router.push('/admin/settings')"
+                    class="w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold text-sm tracking-tight text-white/40 hover:text-white hover:bg-white/5 transition-all text-left">
+                    <i class="fa-solid fa-gear text-lg"></i>
+                    Settings
+                </button>
             </nav>
             <div class="mt-auto pt-6 border-t border-white/5 flex flex-col gap-2">
                 <button @click="adminStore.downloadCSV()"
@@ -152,7 +161,7 @@ async function handleLogout() {
                         <button @click="mode = 'all'"
                             class="px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
                             :class="mode === 'all' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-white/5 text-white/60 hover:text-white'">
-                            All Users ({{ adminStore.users.length }})
+                            All Users ({{ adminStore.recipients.length }})
                         </button>
                         <button @click="mode = 'selected'"
                             class="px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"

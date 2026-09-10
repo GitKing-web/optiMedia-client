@@ -56,6 +56,18 @@ const routes = [
         meta: { hideNavbar: true, hideFooter: true, requiresAuth: true, requiresAdmin: true }
     },
     {
+        path: '/admin/settings',
+        name: 'AdminSettings',
+        component: () => import('../views/AdminSettings.vue'),
+        meta: { hideNavbar: true, hideFooter: true, requiresAuth: true, requiresAdmin: true }
+    },
+    {
+        path: '/admin/coupons',
+        name: 'AdminCoupons',
+        component: () => import('../views/AdminCoupons.vue'),
+        meta: { hideNavbar: true, hideFooter: true, requiresAuth: true, requiresAdmin: true }
+    },
+    {
         path: '/login',
         name: 'Login',
         component: () => import('../views/Login.vue'),
@@ -141,7 +153,6 @@ router.beforeEach(async (to) => {
         return '/login'
     }
 
-    // Require email verification before accessing protected (authenticated) areas.
     if (needsAuth && authStore.isAuthenticated && !authStore.isAdmin && !authStore.user?.emailVerified) {
         return { path: '/verify-email', query: { email: authStore.user?.email } }
     }

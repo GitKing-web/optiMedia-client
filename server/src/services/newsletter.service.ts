@@ -17,7 +17,6 @@ export async function subscribeToNewsletter(email: string) {
   })
 
   if (existing) {
-    // Re-activate previously unsubscribed emails and idempotently confirm subscription.
     if (!existing.active) {
       await prisma.newsletterSubscriber.update({
         where: { email: normalized },
@@ -35,17 +34,34 @@ export async function subscribeToNewsletter(email: string) {
   return { message: 'Subscribed successfully. Welcome to the Optimedia newsletter!' }
 }
 
-export async function listNewsletterSubscribers() {
-  const subscribers = await prisma.newsletterSubscriber.findMany({
-    orderBy: { createdAt: 'desc' },
-  })
+export async function listNewsletterSubscribers(options: { search?: string; page?: unknown; pageSize?: unknown } = {}) {
+  const search = (options.search || '').trim().toLowerCase()
+  const page = Math.max(1, Math.floor(Number(options.page) || 1))
+  const pageSize = Math.min(100, Math.max(1, Math.floor(Number(options.pageSize) || 10)))
 
-  return subscribers.map((s) => ({
-    id: s.id,
-    email: s.email,
-    active: s.active,
-    createdAt: s.createdAt.toISOString(),
-  }))
+  const where = search ? { email: { contains: search, mode: 'insensitive' as const } } : {}
+
+  const [total, subscribers] = await Promise.all([
+    prisma.newsletterSubscriber.count({ where }),
+    prisma.newsletterSubscriber.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+  ])
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+
+  return {
+    subscribers: subscribers.map((s) => ({
+      id: s.id,
+      email: s.email,
+      active: s.active,
+      createdAt: s.createdAt.toISOString(),
+    })),
+    pagination: { total, page: Math.min(page, totalPages), pageSize, totalPages },
+  }
 }
 
 export async function removeNewsletterSubscriber(id: string) {

@@ -1,4 +1,4 @@
-import { createHmac, randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import { type Prisma } from '@prisma/client'
 import { prisma } from '../db/prisma.ts'
 import { findAuthUserById } from './auth.service.ts'
@@ -6,99 +6,24 @@ import { createId, money } from '../utils.ts'
 import type { AuthUser, Service } from '../types.ts'
 import { createPendingSubscription, grantPaidMonths, normalizeMonths } from './subscription.service.ts'
 import { sendSubscriptionWelcomeEmail } from './reminder.service.ts'
+import { getActiveProvider, getProvider } from './payments/registry.ts'
+import type { PaymentProvider, VerifyResult } from './payments/types.ts'
+import { getClientUrl } from '../config.ts'
+import { getPlatformFee } from './settings.service.ts'
+import { evaluateCoupon, incrementCouponUsage } from './coupon.service.ts'
 
-const PAYSTACK_API_BASE = 'https://api.paystack.co'
+function generateReference(providerName: string) {
+  const prefix = providerName === 'flutterwave' ? 'flw' : 'ps'
+  return `${prefix}_${randomUUID().replace(/-/g, '').slice(0, 18)}`
+}
 
-type PaystackInitializationPayload = {
-  email: string
+interface FinalizeTransaction {
   amount: number
-  reference: string
-  callback_url: string
-  metadata: Record<string, unknown>
+  paidAt?: string | null
+  raw: unknown
 }
 
-type PaystackApiResponse<T> = {
-  status: boolean
-  message: string
-  data: T
-}
-
-type PaystackTransaction = {
-  reference: string
-  status: 'success' | 'failed' | 'abandoned' | 'pending'
-  amount: number
-  paid_at?: string | null
-  authorization?: {
-    authorization_code?: string
-    access_code?: string
-    last4?: string
-  }
-  metadata?: Record<string, unknown>
-  gateway_response?: string
-}
-
-type PaystackWebhookEvent = {
-  event?: string
-  data?: PaystackTransaction & {
-    metadata?: Record<string, unknown>
-  }
-}
-
-function getPaystackSecretKey() {
-  const secretKey = process.env.PAYSTACK_SECRET_KEY
-  if (!secretKey) {
-    throw new Error('PAYSTACK_SECRET_KEY is required')
-  }
-
-  return secretKey
-}
-
-function getClientUrl() {
-  return process.env.CLIENT_URL || 'http://localhost:3001'
-}
-
-function generateReference() {
-  return `ps_${randomUUID().replace(/-/g, '').slice(0, 18)}`
-}
-
-async function paystackFetch<T>(path: string, options: RequestInit = {}) {
-  const response = await fetch(`${PAYSTACK_API_BASE}${path}`, {
-    ...options,
-    headers: {
-      authorization: `Bearer ${getPaystackSecretKey()}`,
-      'content-type': 'application/json',
-      ...(options.headers || {}),
-    },
-  })
-
-  const payload = (await response.json()) as PaystackApiResponse<T>
-
-  if (!response.ok || !payload.status) {
-    throw new Error(payload.message || 'Paystack request failed')
-  }
-
-  return payload
-}
-
-async function initializePaystackTransaction(payload: PaystackInitializationPayload) {
-  return paystackFetch<{ authorization_url: string; access_code: string; reference: string }>(
-    '/transaction/initialize',
-    {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    },
-  )
-}
-
-async function verifyPaystackTransaction(reference: string) {
-  return paystackFetch<PaystackTransaction>(`/transaction/verify/${encodeURIComponent(reference)}`)
-}
-
-function getReferenceFromTransaction(transaction?: PaystackWebhookEvent['data']) {
-  return transaction?.reference || String(transaction?.metadata?.reference || '')
-}
-
-async function finalizeSuccessfulPayment(paymentReference: string, transaction: PaystackTransaction, user: AuthUser) {
+async function finalizeSuccessfulPayment(paymentReference: string, transaction: FinalizeTransaction, user: AuthUser) {
   const payment = await prisma.payment.findUnique({
     where: { reference: paymentReference },
   })
@@ -176,11 +101,15 @@ async function finalizeSuccessfulPayment(paymentReference: string, transaction: 
     where: { reference: paymentReference },
     data: {
       status: 'success',
-      paidAt: transaction.paid_at ? new Date(transaction.paid_at) : new Date(),
+      paidAt: transaction.paidAt ? new Date(transaction.paidAt) : new Date(),
       subscriptionId: subscription.id,
-      paystackResponse: transaction as Prisma.InputJsonValue,
+      paystackResponse: transaction.raw as Prisma.InputJsonValue,
     },
   })
+
+  if (payment.couponCode) {
+    await incrementCouponUsage(payment.couponCode).catch(() => null)
+  }
 
   await sendSubscriptionWelcomeEmail(subscription.id).catch((error) => {
     console.error('Welcome email failed:', error)
@@ -193,26 +122,51 @@ async function finalizeSuccessfulPayment(paymentReference: string, transaction: 
   }
 }
 
-export async function createPaystackCheckout(user: AuthUser, service: Service, monthsInput: unknown = 1) {
+export async function createCheckout(user: AuthUser, service: Service, monthsInput: unknown = 1, couponInput?: unknown) {
   const months = normalizeMonths(monthsInput)
-  const totalAmount = service.price * months
-  const reference = generateReference()
+  const subtotal = service.price * months
+  const platformFee = await getPlatformFee()
+
+  let discount = 0
+  let couponCode: string | null = null
+  if (typeof couponInput === 'string' && couponInput.trim()) {
+    const evaluation = await evaluateCoupon(couponInput, subtotal)
+    if (!evaluation.valid) {
+      return { error: evaluation.message }
+    }
+    discount = evaluation.discount
+    couponCode = evaluation.code
+  }
+
+  const totalAmount = Math.max(0, subtotal - discount) + platformFee
+
+  if (totalAmount <= 0) {
+    return { error: 'Nothing to pay for this order. Please review your coupon.' }
+  }
+
+  const provider = await getActiveProvider()
+  const reference = generateReference(provider.name)
   const callbackUrl = `${getClientUrl()}/subscriptions/${service.slug}?reference=${reference}`
-  const payload: PaystackInitializationPayload = {
+
+  const initialized = await provider.initialize({
     email: user.email,
-    amount: totalAmount * 100,
+    name: user.name,
+    amount: totalAmount,
+    currency: 'NGN',
     reference,
-    callback_url: callbackUrl,
+    callbackUrl,
     metadata: {
       userId: user.id,
       serviceId: service.id,
       serviceSlug: service.slug,
       months,
       monthlyPrice: service.price,
+      provider: provider.name,
+      couponCode,
+      discount,
+      platformFee,
     },
-  }
-
-  const response = await initializePaystackTransaction(payload)
+  })
 
   await prisma.payment.create({
     data: {
@@ -220,25 +174,33 @@ export async function createPaystackCheckout(user: AuthUser, service: Service, m
       userId: user.id,
       serviceId: service.id,
       reference,
-      gateway: 'paystack',
+      gateway: provider.name,
       amount: totalAmount,
       months,
+      platformFee,
+      discount,
+      couponCode,
       status: 'pending',
-      authorizationUrl: response.data.authorization_url,
-      accessCode: response.data.access_code,
+      authorizationUrl: initialized.authorizationUrl,
+      accessCode: initialized.accessCode ?? null,
     },
   })
 
   return {
-    message: 'Paystack checkout initialized',
-    authorizationUrl: response.data.authorization_url,
-    reference: response.data.reference,
+    message: `${provider.name} checkout initialized`,
+    provider: provider.name,
+    authorizationUrl: initialized.authorizationUrl,
+    reference,
     months,
+    subtotal,
+    platformFee,
+    discount,
+    couponCode,
     amount: totalAmount,
   }
 }
 
-export async function verifyPaystackCheckout(user: AuthUser, reference: string) {
+export async function verifyCheckout(user: AuthUser, reference: string) {
   const payment = await prisma.payment.findUnique({
     where: { reference },
   })
@@ -268,19 +230,19 @@ export async function verifyPaystackCheckout(user: AuthUser, reference: string) 
     }
   }
 
-  const verification = await verifyPaystackTransaction(reference)
-  const transaction = verification.data
+  const provider = getProvider(payment.gateway)
+  const verification: VerifyResult = await provider.verify(reference)
 
-  if (transaction.status !== 'success') {
+  if (verification.status !== 'success') {
     await prisma.payment.update({
       where: { reference },
       data: {
         status: 'failed',
-        paystackResponse: transaction as Prisma.InputJsonValue,
+        paystackResponse: verification.raw as Prisma.InputJsonValue,
       },
     })
 
-    return { error: `Payment is ${transaction.status}` }
+    return { error: `Payment is ${verification.status}` }
   }
 
   const service = await prisma.service.findUnique({
@@ -291,38 +253,27 @@ export async function verifyPaystackCheckout(user: AuthUser, reference: string) 
     return { error: 'Service not found for this payment' }
   }
 
-  return finalizeSuccessfulPayment(reference, transaction, user)
+  return finalizeSuccessfulPayment(
+    reference,
+    { amount: verification.amount, paidAt: verification.paidAt, raw: verification.raw },
+    user,
+  )
 }
 
-export async function handlePaystackWebhook(rawBody: string | Buffer, signature?: string | null) {
-  const secretKey = getPaystackSecretKey()
-  const expected = createHmac('sha512', secretKey)
+export async function handleWebhook(
+  providerName: string,
+  rawBody: string | Buffer,
+  headers: Record<string, string | undefined>,
+) {
   const payload = Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : rawBody
-  expected.update(payload)
-  const digest = expected.digest('hex')
+  const provider: PaymentProvider = getProvider(providerName)
 
-  if (!signature || signature !== digest) {
-    return { error: 'Invalid webhook signature' }
-  }
-
-  let event: PaystackWebhookEvent
-  try {
-    event = JSON.parse(payload) as PaystackWebhookEvent
-  } catch {
-    return { error: 'Invalid JSON payload' }
-  }
-
-  if (event.event !== 'charge.success') {
-    return { ignored: true }
-  }
-
-  const reference = getReferenceFromTransaction(event.data)
-  if (!reference) {
-    return { error: 'Webhook reference missing' }
-  }
+  const parsed = await provider.parseWebhook(payload, headers)
+  if ('error' in parsed) return { error: parsed.error }
+  if ('ignored' in parsed) return { ignored: true }
 
   const payment = await prisma.payment.findUnique({
-    where: { reference },
+    where: { reference: parsed.reference },
   })
 
   if (!payment) {
@@ -334,5 +285,13 @@ export async function handlePaystackWebhook(rawBody: string | Buffer, signature?
     return { error: 'User not found for payment' }
   }
 
-  return finalizeSuccessfulPayment(reference, event.data || ({ reference, status: 'success', amount: payment.amount } as PaystackTransaction), user)
+  return finalizeSuccessfulPayment(
+    parsed.reference,
+    {
+      amount: parsed.transaction.amount,
+      paidAt: parsed.transaction.paidAt,
+      raw: parsed.transaction.raw,
+    },
+    user,
+  )
 }

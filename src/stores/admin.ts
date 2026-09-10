@@ -122,9 +122,76 @@ export interface FamilyAccount {
     }
 }
 
+export type PaymentProviderName = 'paystack' | 'flutterwave'
+
+export interface PaymentSettings {
+    provider: PaymentProviderName
+    paystack: {
+        publicKey: string
+        secretKeySet: boolean
+        secretKeyMasked: string
+    }
+    flutterwave: {
+        publicKey: string
+        secretKeySet: boolean
+        secretKeyMasked: string
+        secretHashSet: boolean
+        secretHashMasked: string
+    }
+}
+
+export interface UpdatePaymentSettingsInput {
+    provider?: PaymentProviderName
+    paystackPublicKey?: string
+    paystackSecretKey?: string
+    flutterwavePublicKey?: string
+    flutterwaveSecretKey?: string
+    flutterwaveSecretHash?: string
+}
+
+export interface PaginationMeta {
+    total: number
+    page: number
+    pageSize: number
+    totalPages: number
+}
+
+export const EMPTY_PAGINATION: PaginationMeta = { total: 0, page: 1, pageSize: 10, totalPages: 1 }
+
+export interface SiteSettings {
+    siteName: string
+    siteBanner: string
+    platformFee: number
+}
+
+export interface Coupon {
+    id: string
+    code: string
+    type: 'percentage' | 'fixed'
+    value: number
+    active: boolean
+    minAmount: number | null
+    maxUses: number | null
+    usedCount: number
+    expiresAt: string | null
+    createdAt: string
+    updatedAt: string
+}
+
+export interface CouponInput {
+    code?: string
+    type?: 'percentage' | 'fixed'
+    value?: number
+    active?: boolean
+    minAmount?: number | null
+    maxUses?: number | null
+    expiresAt?: string | null
+}
+
 interface AdminUsersResponse {
     summary: AdminSummary
     users: AdminUserRow[]
+    pagination: PaginationMeta
 }
 
 export const useAdminStore = defineStore('admin', () => {
@@ -153,22 +220,56 @@ export const useAdminStore = defineStore('admin', () => {
     const familyAccounts = ref<FamilyAccount[]>([])
     const isFamilyLoading = ref(false)
 
+    const paymentSettings = ref<PaymentSettings | null>(null)
+    const isSettingsLoading = ref(false)
+    const isSavingSettings = ref(false)
+
+    const siteSettings = ref<SiteSettings | null>(null)
+    const isSiteLoading = ref(false)
+    const isSavingSite = ref(false)
+    const isSavingAccount = ref(false)
+
+    const coupons = ref<Coupon[]>([])
+    const isCouponsLoading = ref(false)
+    const isSavingCoupon = ref(false)
+
+    const recipients = ref<AdminUserRow[]>([])
+
+    const usersPagination = ref<PaginationMeta>({ ...EMPTY_PAGINATION })
+    const usersSearch = ref('')
+    const logsPagination = ref<PaginationMeta>({ ...EMPTY_PAGINATION })
+    const newsletterPagination = ref<PaginationMeta>({ ...EMPTY_PAGINATION })
+
     const filteredUsers = computed(() => users.value)
 
-    async function fetchUsers(tab: typeof activeTab.value = activeTab.value) {
+    async function fetchUsers(options: {
+        tab?: typeof activeTab.value
+        search?: string
+        page?: number
+        pageSize?: number
+    } = {}) {
         if (!authStore.isAuthenticated) {
             users.value = []
             return []
         }
 
+        const tab = options.tab ?? activeTab.value
+        if (options.search !== undefined) usersSearch.value = options.search
+        const page = options.page ?? usersPagination.value.page
+        const pageSize = options.pageSize ?? usersPagination.value.pageSize
+
         isLoading.value = true
         error.value = null
 
         try {
-            const response = await apiFetch<AdminUsersResponse>(`/api/admin/users?tab=${tab}`)
+            const params = new URLSearchParams({ tab, page: String(page), pageSize: String(pageSize) })
+            if (usersSearch.value) params.set('search', usersSearch.value)
+
+            const response = await apiFetch<AdminUsersResponse>(`/api/admin/users?${params.toString()}`)
 
             summary.value = response.summary
             users.value = response.users
+            if (response.pagination) usersPagination.value = response.pagination
             return response.users
         } catch (caughtError) {
             if (caughtError instanceof ApiError) {
@@ -180,6 +281,15 @@ export const useAdminStore = defineStore('admin', () => {
         } finally {
             isLoading.value = false
         }
+    }
+
+    async function fetchRecipients(search = '') {
+        if (!authStore.isAuthenticated) return []
+        const params = new URLSearchParams()
+        if (search) params.set('search', search)
+        const response = await apiFetch<{ users: AdminUserRow[] }>(`/api/admin/recipients?${params.toString()}`)
+        recipients.value = response.users
+        return response.users
     }
 
     async function fetchSummary() {
@@ -263,13 +373,22 @@ export const useAdminStore = defineStore('admin', () => {
         }
     }
 
-    async function fetchSubscriptionLogs() {
+    async function fetchSubscriptionLogs(options: { search?: string; page?: number; pageSize?: number } = {}) {
         if (!authStore.isAuthenticated) return
 
         isLogsLoading.value = true
         try {
-            const response = await apiFetch<{ logs: SubscriptionLog[] }>('/api/admin/logs')
+            const params = new URLSearchParams({
+                page: String(options.page ?? logsPagination.value.page),
+                pageSize: String(options.pageSize ?? logsPagination.value.pageSize),
+            })
+            if (options.search) params.set('search', options.search)
+
+            const response = await apiFetch<{ logs: SubscriptionLog[]; pagination: PaginationMeta }>(
+                `/api/admin/logs?${params.toString()}`
+            )
             subscriptionLogs.value = response.logs
+            if (response.pagination) logsPagination.value = response.pagination
         } catch {
         } finally {
             isLogsLoading.value = false
@@ -307,15 +426,138 @@ export const useAdminStore = defineStore('admin', () => {
     }
 
     async function refresh(tab: typeof activeTab.value = activeTab.value) {
-        await Promise.all([fetchSummary(), fetchUsers(tab)])
+        await Promise.all([fetchSummary(), fetchUsers({ tab })])
     }
 
-    async function fetchNewsletterSubscribers() {
+    async function fetchPaymentSettings() {
+        if (!authStore.isAuthenticated) return null
+        isSettingsLoading.value = true
+        try {
+            const response = await apiFetch<{ settings: PaymentSettings }>('/api/admin/settings')
+            paymentSettings.value = response.settings
+            return response.settings
+        } finally {
+            isSettingsLoading.value = false
+        }
+    }
+
+    async function savePaymentSettings(payload: UpdatePaymentSettingsInput) {
+        if (!authStore.isAuthenticated) throw new Error('Unauthorized')
+        isSavingSettings.value = true
+        try {
+            const response = await apiFetch<{ settings: PaymentSettings }>('/api/admin/settings', {
+                method: 'PUT',
+                body: JSON.stringify(payload),
+            })
+            paymentSettings.value = response.settings
+            return response.settings
+        } finally {
+            isSavingSettings.value = false
+        }
+    }
+
+    async function fetchSiteSettings() {
+        if (!authStore.isAuthenticated) return null
+        isSiteLoading.value = true
+        try {
+            const response = await apiFetch<{ settings: SiteSettings }>('/api/admin/site')
+            siteSettings.value = response.settings
+            return response.settings
+        } finally {
+            isSiteLoading.value = false
+        }
+    }
+
+    async function saveSiteSettings(payload: { siteName?: string; siteBanner?: string; platformFee?: number }) {
+        if (!authStore.isAuthenticated) throw new Error('Unauthorized')
+        isSavingSite.value = true
+        try {
+            const response = await apiFetch<{ settings: SiteSettings }>('/api/admin/site', {
+                method: 'PUT',
+                body: JSON.stringify(payload),
+            })
+            siteSettings.value = response.settings
+            return response.settings
+        } finally {
+            isSavingSite.value = false
+        }
+    }
+
+    async function updateAccount(payload: { currentPassword: string; email?: string; password?: string }) {
+        if (!authStore.isAuthenticated) throw new Error('Unauthorized')
+        isSavingAccount.value = true
+        try {
+            const response = await apiFetch<{ message: string; emailChanged: boolean }>('/api/admin/account', {
+                method: 'POST',
+                body: JSON.stringify(payload),
+            })
+            if (response.emailChanged) {
+                await authStore.fetchCurrentUser().catch(() => null)
+            }
+            return response
+        } finally {
+            isSavingAccount.value = false
+        }
+    }
+
+    async function fetchCoupons() {
+        if (!authStore.isAuthenticated) return []
+        isCouponsLoading.value = true
+        try {
+            const response = await apiFetch<{ coupons: Coupon[] }>('/api/admin/coupons')
+            coupons.value = response.coupons
+            return response.coupons
+        } catch {
+            coupons.value = []
+            return []
+        } finally {
+            isCouponsLoading.value = false
+        }
+    }
+
+    async function createCoupon(payload: CouponInput) {
+        if (!authStore.isAuthenticated) throw new Error('Unauthorized')
+        isSavingCoupon.value = true
+        try {
+            await apiFetch<{ coupon: Coupon }>('/api/admin/coupons', { method: 'POST', body: JSON.stringify(payload) })
+            await fetchCoupons()
+        } finally {
+            isSavingCoupon.value = false
+        }
+    }
+
+    async function updateCoupon(id: string, payload: CouponInput) {
+        if (!authStore.isAuthenticated) throw new Error('Unauthorized')
+        isSavingCoupon.value = true
+        try {
+            await apiFetch<{ coupon: Coupon }>(`/api/admin/coupons/${id}`, { method: 'PATCH', body: JSON.stringify(payload) })
+            await fetchCoupons()
+        } finally {
+            isSavingCoupon.value = false
+        }
+    }
+
+    async function deleteCoupon(id: string) {
+        if (!authStore.isAuthenticated) throw new Error('Unauthorized')
+        await apiFetch<{ message: string }>(`/api/admin/coupons/${id}`, { method: 'DELETE' })
+        coupons.value = coupons.value.filter((c) => c.id !== id)
+    }
+
+    async function fetchNewsletterSubscribers(options: { search?: string; page?: number; pageSize?: number } = {}) {
         if (!authStore.isAuthenticated) return []
         isNewsletterLoading.value = true
         try {
-            const response = await apiFetch<{ subscribers: NewsletterSubscriber[] }>('/api/newsletter/subscribers')
+            const params = new URLSearchParams({
+                page: String(options.page ?? newsletterPagination.value.page),
+                pageSize: String(options.pageSize ?? newsletterPagination.value.pageSize),
+            })
+            if (options.search) params.set('search', options.search)
+
+            const response = await apiFetch<{ subscribers: NewsletterSubscriber[]; pagination: PaginationMeta }>(
+                `/api/newsletter/subscribers?${params.toString()}`
+            )
             newsletterSubscribers.value = response.subscribers
+            if (response.pagination) newsletterPagination.value = response.pagination
             return response.subscribers
         } catch {
             newsletterSubscribers.value = []
@@ -436,7 +678,23 @@ export const useAdminStore = defineStore('admin', () => {
         isNewsletterLoading,
         familyAccounts,
         isFamilyLoading,
+        paymentSettings,
+        isSettingsLoading,
+        isSavingSettings,
+        siteSettings,
+        isSiteLoading,
+        isSavingSite,
+        isSavingAccount,
+        coupons,
+        isCouponsLoading,
+        isSavingCoupon,
+        recipients,
+        usersPagination,
+        usersSearch,
+        logsPagination,
+        newsletterPagination,
         fetchUsers,
+        fetchRecipients,
         fetchSummary,
         activateSubscription,
         fetchUserDetail,
@@ -455,6 +713,15 @@ export const useAdminStore = defineStore('admin', () => {
         extendFamilySlot,
         vacateFamilySlot,
         cleanupFamilySlots,
+        fetchPaymentSettings,
+        savePaymentSettings,
+        fetchSiteSettings,
+        saveSiteSettings,
+        updateAccount,
+        fetchCoupons,
+        createCoupon,
+        updateCoupon,
+        deleteCoupon,
         refresh
     }
 })

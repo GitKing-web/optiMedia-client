@@ -2,10 +2,12 @@
 import { ref, watch, onBeforeUnmount } from 'vue'
 import { RouterLink, useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { useSiteStore } from '../stores/site'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
+const siteStore = useSiteStore()
 const isMenuOpen = ref(false)
 
 function toggleMenu() {
@@ -41,7 +43,7 @@ onBeforeUnmount(() => {
             <RouterLink to="/" class="flex items-center gap-2 sm:gap-3 min-w-0">
                 <img src="/images/logo.jpeg" alt="optiMedia Logo"
                     class="h-8 w-8 sm:h-10 sm:w-10 object-contain rounded-lg shadow-lg border border-white/10 shrink-0" />
-                <span class="text-base sm:text-2xl font-black tracking-tighter uppercase italic truncate">OPTIMEDIA</span>
+                <span class="text-base sm:text-2xl font-black tracking-tighter uppercase italic truncate">{{ siteStore.siteName }}</span>
             </RouterLink>
 
             <!-- Desktop Navigation -->
@@ -109,7 +111,7 @@ onBeforeUnmount(() => {
                             <div class="flex items-center gap-2 min-w-0">
                                 <img src="/images/logo.jpeg" alt="optiMedia Logo"
                                     class="h-9 w-9 object-contain rounded-lg border border-white/10 shrink-0" />
-                                <span class="text-lg font-black tracking-tighter uppercase italic truncate">OPTIMEDIA</span>
+                                <span class="text-lg font-black tracking-tighter uppercase italic truncate">{{ siteStore.siteName }}</span>
                             </div>
                             <button @click="closeMenu" aria-label="Close menu"
                                 class="h-9 w-9 flex items-center justify-center rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-all">

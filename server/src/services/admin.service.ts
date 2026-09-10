@@ -81,7 +81,24 @@ export async function buildAdminSummary() {
   }
 }
 
-export async function filterAdminUsers(tab: string) {
+function normalizePagination(page?: unknown, pageSize?: unknown) {
+  const safePage = Math.max(1, Math.floor(Number(page) || 1))
+  const safeSize = Math.min(100, Math.max(1, Math.floor(Number(pageSize) || 10)))
+  return { page: safePage, pageSize: safeSize }
+}
+
+function paginate<T>(items: T[], page: number, pageSize: number) {
+  const total = items.length
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const safePage = Math.min(page, totalPages)
+  const start = (safePage - 1) * pageSize
+  return {
+    items: items.slice(start, start + pageSize),
+    pagination: { total, page: safePage, pageSize, totalPages },
+  }
+}
+
+export async function filterAdminUsers(options: { tab?: string; search?: string; page?: unknown; pageSize?: unknown }) {
   const users = await prisma.user.findMany({
     include: {
       subscriptions: {
@@ -91,21 +108,54 @@ export async function filterAdminUsers(tab: string) {
     },
   })
 
-  const rows = users.map(toAdminRow)
+  let rows = users.map(toAdminRow)
 
-  switch (tab.toLowerCase()) {
+  const tab = (options.tab || 'all').toLowerCase()
+  switch (tab) {
     case 'pending':
-      return rows.filter((row) => row.status === 'pending')
+      rows = rows.filter((row) => row.status === 'pending')
+      break
     case 'active':
-      return rows.filter((row) => row.status === 'active')
+      rows = rows.filter((row) => row.status === 'active')
+      break
     case 'expiring':
-      return rows.filter((row) => {
+      rows = rows.filter((row) => {
         const remaining = daysRemaining(row.expireDate ? new Date(row.expireDate) : null)
         return remaining > 0 && remaining <= 10
       })
-    default:
-      return rows
+      break
   }
+
+  const search = (options.search || '').trim().toLowerCase()
+  if (search) {
+    rows = rows.filter((row) =>
+      [row.userName, row.userEmail, row.whatsappContact, row.serviceName]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(search)),
+    )
+  }
+
+  const { page, pageSize } = normalizePagination(options.page, options.pageSize)
+  return paginate(rows, page, pageSize)
+}
+
+export async function getUserRecipients(search?: string) {
+  const users = await prisma.user.findMany({ select: { id: true, name: true, email: true, role: true } })
+  const term = (search || '').trim().toLowerCase()
+  return users
+    .filter((u) => !term || u.name.toLowerCase().includes(term) || u.email.toLowerCase().includes(term))
+    .map((u) => ({
+      userId: u.id,
+      authUserId: u.id,
+      userName: u.name,
+      userEmail: u.email,
+      whatsappContact: '',
+      serviceName: '—',
+      status: 'none' as const,
+      price: 0,
+      icon: 'fa-solid fa-user',
+      role: u.role,
+    }))
 }
 
 export async function activateAdminUser(userId: string) {
@@ -344,14 +394,15 @@ export async function getRevenueStats() {
   return { months, totalRevenue }
 }
 
-export async function getSubscriptionLogs() {
+export async function getSubscriptionLogs(options: { search?: string; page?: unknown; pageSize?: unknown } = {}) {
+  const search = (options.search || '').trim().toLowerCase()
+
   const activities = await prisma.activity.findMany({
     include: { user: { select: { name: true, email: true } } },
     orderBy: { createdAt: 'desc' },
-    take: 100,
   })
 
-  return activities.map((a) => ({
+  let rows = activities.map((a) => ({
     id: a.id,
     userName: a.user.name,
     userEmail: a.user.email,
@@ -362,6 +413,16 @@ export async function getSubscriptionLogs() {
     date: a.date,
     createdAt: a.createdAt.toISOString(),
   }))
+
+  if (search) {
+    rows = rows.filter((row) =>
+      [row.userName, row.userEmail, row.service, row.amount, row.status]
+        .some((value) => String(value).toLowerCase().includes(search)),
+    )
+  }
+
+  const { page, pageSize } = normalizePagination(options.page, options.pageSize)
+  return paginate(rows, page, pageSize)
 }
 
 export async function exportUsersCSV() {

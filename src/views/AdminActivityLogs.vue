@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import Skeleton from '../components/Skeleton.vue'
+import Pagination from '../components/Pagination.vue'
 import { useAdminStore } from '../stores/admin'
 import { useAuthStore } from '../stores/auth'
 
@@ -9,17 +10,21 @@ const router = useRouter()
 const adminStore = useAdminStore()
 const authStore = useAuthStore()
 const searchQuery = ref('')
+let searchTimer: ReturnType<typeof setTimeout> | null = null
 
-const filteredLogs = computed(() => {
-    const q = searchQuery.value.toLowerCase().trim()
-    if (!q) return adminStore.subscriptionLogs
-    return adminStore.subscriptionLogs.filter(
-        (l) =>
-            l.userName.toLowerCase().includes(q) ||
-            l.userEmail.toLowerCase().includes(q) ||
-            l.service.toLowerCase().includes(q),
-    )
+// Logs are filtered + paginated server-side.
+const filteredLogs = computed(() => adminStore.subscriptionLogs)
+
+watch(searchQuery, () => {
+    if (searchTimer) clearTimeout(searchTimer)
+    searchTimer = setTimeout(() => {
+        adminStore.fetchSubscriptionLogs({ search: searchQuery.value, page: 1 })
+    }, 300)
 })
+
+function changePage(page: number) {
+    adminStore.fetchSubscriptionLogs({ page })
+}
 
 onMounted(() => {
     adminStore.fetchSubscriptionLogs()
@@ -69,6 +74,16 @@ async function handleLogout() {
                     class="w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold text-sm tracking-tight text-white/40 hover:text-white hover:bg-white/5 transition-all text-left">
                     <i class="fa-solid fa-users-rectangle text-lg"></i>
                     Family Slots
+                </button>
+                <button @click="router.push('/admin/coupons')"
+                    class="w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold text-sm tracking-tight text-white/40 hover:text-white hover:bg-white/5 transition-all text-left">
+                    <i class="fa-solid fa-tags text-lg"></i>
+                    Coupons
+                </button>
+                <button @click="router.push('/admin/settings')"
+                    class="w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold text-sm tracking-tight text-white/40 hover:text-white hover:bg-white/5 transition-all text-left">
+                    <i class="fa-solid fa-gear text-lg"></i>
+                    Settings
                 </button>
             </nav>
             <div class="mt-auto pt-6 border-t border-white/5 flex flex-col gap-2">
@@ -147,6 +162,12 @@ async function handleLogout() {
                         No activity found
                     </p>
                 </div>
+
+                <Pagination :page="adminStore.logsPagination.page"
+                    :total-pages="adminStore.logsPagination.totalPages"
+                    :total="adminStore.logsPagination.total"
+                    :page-size="adminStore.logsPagination.pageSize"
+                    @update:page="changePage" />
             </div>
         </main>
     </div>

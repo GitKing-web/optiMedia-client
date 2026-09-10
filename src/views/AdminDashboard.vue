@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import Skeleton from '../components/Skeleton.vue'
+import Pagination from '../components/Pagination.vue'
 import { useAdminStore } from '../stores/admin'
 import { useAuthStore } from '../stores/auth'
 import type { AdminUserRow } from '../stores/admin'
@@ -14,23 +15,14 @@ const selectedRow = ref<AdminUserRow | null>(null)
 const showUserModal = ref(false)
 const selectedIds = ref<Set<string>>(new Set())
 const activatingId = ref<string | null>(null)
+let searchTimer: ReturnType<typeof setTimeout> | null = null
 
-// Computed directly from users array to prevent stale/incorrect summary counts from the store
-const totalUsersCount = computed(() => adminStore.users.length || adminStore.summary.totalUsers)
-const pendingCount = computed(() => adminStore.users.filter((u) => u.status === 'pending').length)
-const activeCount = computed(() => adminStore.users.filter((u) => u.status === 'active').length)
+const totalUsersCount = computed(() => adminStore.summary.totalUsers)
+const pendingCount = computed(() => adminStore.summary.pendingCount)
+const activeCount = computed(() => adminStore.summary.activeCount)
 const expiringCount = computed(() => adminStore.summary.expiringCount)
 
-const filteredUsers = computed(() => {
-    const q = searchQuery.value.toLowerCase().trim()
-    if (!q) return adminStore.users
-    return adminStore.users.filter(
-        (u) =>
-            u.userName.toLowerCase().includes(q) ||
-            u.userEmail.toLowerCase().includes(q) ||
-            u.whatsappContact.includes(q),
-    )
-})
+const filteredUsers = computed(() => adminStore.users)
 
 const pendingUsers = computed(() => adminStore.users.filter((u) => u.status === 'pending'))
 
@@ -44,8 +36,19 @@ const activeTab = computed({
 watch(() => adminStore.activeTab, (tab) => {
     searchQuery.value = ''
     selectedIds.value = new Set()
-    adminStore.fetchUsers(tab).catch(() => null)
+    adminStore.fetchUsers({ tab, search: '', page: 1 }).catch(() => null)
 })
+
+watch(searchQuery, () => {
+    if (searchTimer) clearTimeout(searchTimer)
+    searchTimer = setTimeout(() => {
+        adminStore.fetchUsers({ search: searchQuery.value, page: 1 }).catch(() => null)
+    }, 300)
+})
+
+function changePage(page: number) {
+    adminStore.fetchUsers({ page }).catch(() => null)
+}
 
 onMounted(async () => {
     await adminStore.refresh()
@@ -140,6 +143,16 @@ async function handleLogout() {
                     class="w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold text-sm tracking-tight text-white/40 hover:text-white hover:bg-white/5 transition-all text-left">
                     <i class="fa-solid fa-users-rectangle text-lg"></i>
                     Family Slots
+                </button>
+                <button @click="router.push('/admin/coupons')"
+                    class="w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold text-sm tracking-tight text-white/40 hover:text-white hover:bg-white/5 transition-all text-left">
+                    <i class="fa-solid fa-tags text-lg"></i>
+                    Coupons
+                </button>
+                <button @click="router.push('/admin/settings')"
+                    class="w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold text-sm tracking-tight text-white/40 hover:text-white hover:bg-white/5 transition-all text-left">
+                    <i class="fa-solid fa-gear text-lg"></i>
+                    Settings
                 </button>
             </nav>
             <div class="mt-auto pt-6 border-t border-white/5 flex flex-col gap-2">
@@ -346,6 +359,12 @@ async function handleLogout() {
                             </table>
                         </div>
                     </div>
+
+                    <Pagination :page="adminStore.usersPagination.page"
+                        :total-pages="adminStore.usersPagination.totalPages"
+                        :total="adminStore.usersPagination.total"
+                        :page-size="adminStore.usersPagination.pageSize"
+                        @update:page="changePage" />
                 </div>
             </div>
         </main>
