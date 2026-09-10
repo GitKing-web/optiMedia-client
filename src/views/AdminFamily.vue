@@ -431,7 +431,7 @@ async function handleLogout() {
     <Teleport to="body">
         <div v-if="showAccountModal" @click.self="showAccountModal = false"
             class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div class="bg-secondary border border-white/10 rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl p-6 sm:p-8">
+            <div class="bg-secondary text-white border border-white/10 rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl p-6 sm:p-8">
                 <h2 class="text-xl font-black uppercase tracking-tight italic mb-6">
                     {{ editMode ? 'Edit Master Account' : 'New Master Account' }}
                 </h2>
@@ -439,46 +439,46 @@ async function handleLogout() {
                     <div>
                         <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Label</label>
                         <input v-model="accountForm.label" placeholder="Spotify Family A"
-                            class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm outline-none focus:border-primary/40" />
+                            class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm text-white placeholder-white/30 outline-none focus:border-primary/40" />
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Service</label>
                             <input v-model="accountForm.serviceName" placeholder="Spotify Family"
-                                class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm outline-none focus:border-primary/40" />
+                                class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm text-white placeholder-white/30 outline-none focus:border-primary/40" />
                         </div>
                         <div>
                             <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Slots</label>
                             <input v-model="accountForm.capacity" type="number" min="1" max="50"
-                                class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm outline-none focus:border-primary/40" />
+                                class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm text-white placeholder-white/30 outline-none focus:border-primary/40" />
                         </div>
                     </div>
                     <div>
                         <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Master Email</label>
                         <input v-model="accountForm.masterEmail" type="email" placeholder="master@example.com"
-                            class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm outline-none focus:border-primary/40" />
+                            class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm text-white placeholder-white/30 outline-none focus:border-primary/40" />
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Master Password</label>
                             <input v-model="accountForm.masterPassword" type="text" placeholder="Optional"
-                                class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm outline-none focus:border-primary/40" />
+                                class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm text-white placeholder-white/30 outline-none focus:border-primary/40" />
                         </div>
                         <div>
                             <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Renewal Date</label>
                             <input v-model="accountForm.renewalDate" type="date"
-                                class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm outline-none focus:border-primary/40" />
+                                class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm text-white placeholder-white/30 outline-none focus:border-primary/40 [color-scheme:dark]" />
                         </div>
                     </div>
                     <div>
                         <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Monthly Cost (₦)</label>
                         <input v-model="accountForm.monthlyCost" type="number" min="0" placeholder="Optional"
-                            class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm outline-none focus:border-primary/40" />
+                            class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm text-white placeholder-white/30 outline-none focus:border-primary/40" />
                     </div>
                     <div>
                         <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Notes</label>
                         <textarea v-model="accountForm.notes" rows="2" placeholder="Optional"
-                            class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm outline-none focus:border-primary/40"></textarea>
+                            class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm text-white placeholder-white/30 outline-none focus:border-primary/40"></textarea>
                     </div>
                     <p v-if="message" class="text-xs font-bold text-red-400">{{ message }}</p>
                 </div>
@@ -500,7 +500,7 @@ async function handleLogout() {
     <Teleport to="body">
         <div v-if="showSlotModal" @click.self="showSlotModal = false"
             class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div class="bg-secondary border border-white/10 rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl p-6 sm:p-8">
+            <div class="bg-secondary text-white border border-white/10 rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl p-6 sm:p-8">
                 <h2 class="text-xl font-black uppercase tracking-tight italic mb-1">Assign Slot</h2>
                 <p class="text-white/40 text-xs mb-6">
                     {{ activeAccount?.label }} · Slot {{ activeSlot?.slotNumber }}
@@ -509,24 +509,24 @@ async function handleLogout() {
                     <div>
                         <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Member Name</label>
                         <input v-model="slotForm.memberName" placeholder="Full name"
-                            class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm outline-none focus:border-primary/40" />
+                            class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm text-white placeholder-white/30 outline-none focus:border-primary/40" />
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Member Email</label>
                             <input v-model="slotForm.memberEmail" type="email" placeholder="member@example.com"
-                                class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm outline-none focus:border-primary/40" />
+                                class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm text-white placeholder-white/30 outline-none focus:border-primary/40" />
                         </div>
                         <div>
                             <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">WhatsApp</label>
                             <input v-model="slotForm.memberContact" placeholder="+234..."
-                                class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm outline-none focus:border-primary/40" />
+                                class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm text-white placeholder-white/30 outline-none focus:border-primary/40" />
                         </div>
                     </div>
                     <div>
                         <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Duration (months)</label>
                         <select v-model="slotForm.months"
-                            class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm outline-none focus:border-primary/40">
+                            class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm text-white placeholder-white/30 outline-none focus:border-primary/40">
                             <option :value="1">1 month</option>
                             <option :value="2">2 months</option>
                             <option :value="3">3 months</option>
@@ -535,7 +535,7 @@ async function handleLogout() {
                     <div>
                         <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Notes</label>
                         <input v-model="slotForm.notes" placeholder="Optional"
-                            class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm outline-none focus:border-primary/40" />
+                            class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm text-white placeholder-white/30 outline-none focus:border-primary/40" />
                     </div>
                     <p v-if="message" class="text-xs font-bold text-red-400">{{ message }}</p>
                 </div>

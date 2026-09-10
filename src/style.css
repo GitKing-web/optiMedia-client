@@ -23,3 +23,13 @@ body {
   color: var(--secondary);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
+
+/*
+ * Keep select dropdown options legible on dark backgrounds.
+ * (Do NOT force `color` on inputs/textareas globally: an unlayered rule
+ * overrides Tailwind's layered text-* utilities and hides typed text.)
+ */
+select option {
+  color: #0f172a;
+  background-color: #ffffff;
+}
