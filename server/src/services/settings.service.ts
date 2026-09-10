@@ -151,11 +151,19 @@ export async function updatePaymentSettings(input: UpdatePaymentSettingsInput) {
     [KEYS.flutterwaveSecretHash, input.flutterwaveSecretHash],
   ]
 
+  const updatedKeys: string[] = []
+
   for (const [key, value] of assignments) {
     if (typeof value === 'string' && value.trim() !== '') {
       await upsertSetting(key, value.trim())
+      updatedKeys.push(key)
     }
   }
+
+  console.log('[settings] payment settings updated', {
+    provider: input.provider ?? '(unchanged)',
+    keys: updatedKeys,
+  })
 
   return { settings: await getPaymentSettingsView() }
 }
