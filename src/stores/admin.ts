@@ -350,7 +350,7 @@ export const useAdminStore = defineStore('admin', () => {
         label: string
         serviceName: string
         masterEmail: string
-        masterPassword?: string
+        masterPassword?: string | null
         capacity?: number
         monthlyCost?: number | null
         renewalDate?: string | null
