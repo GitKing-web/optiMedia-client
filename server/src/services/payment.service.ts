@@ -10,7 +10,7 @@ import { getActiveProvider, getProvider } from './payments/registry.ts'
 import type { PaymentProvider, VerifyResult } from './payments/types.ts'
 import { getClientUrl } from '../config.ts'
 import { getPlatformFee } from './settings.service.ts'
-import { evaluateCoupon, incrementCouponUsage } from './coupon.service.ts'
+import { evaluateCoupon, recordCouponRedemption } from './coupon.service.ts'
 
 function generateReference(providerName: string) {
   const prefix = providerName === 'flutterwave' ? 'flw' : 'ps'
@@ -108,7 +108,7 @@ async function finalizeSuccessfulPayment(paymentReference: string, transaction: 
   })
 
   if (payment.couponCode) {
-    await incrementCouponUsage(payment.couponCode).catch(() => null)
+    await recordCouponRedemption(payment.couponCode, user.id, paymentReference)
   }
 
   await sendSubscriptionWelcomeEmail(subscription.id).catch((error) => {
@@ -130,7 +130,7 @@ export async function createCheckout(user: AuthUser, service: Service, monthsInp
   let discount = 0
   let couponCode: string | null = null
   if (typeof couponInput === 'string' && couponInput.trim()) {
-    const evaluation = await evaluateCoupon(couponInput, subtotal)
+    const evaluation = await evaluateCoupon(couponInput, subtotal, user.id)
     if (!evaluation.valid) {
       return { error: evaluation.message }
     }

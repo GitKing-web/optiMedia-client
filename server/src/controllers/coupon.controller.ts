@@ -31,7 +31,7 @@ export async function validateCouponController(req: AuthenticatedRequest, res: R
   }
 
   const platformFee = await getPlatformFee()
-  const evaluation = await evaluateCoupon(code, subtotal)
+  const evaluation = await evaluateCoupon(code, subtotal, req.auth?.sub)
 
   if (!evaluation.valid) {
     res.status(400).json({ ...evaluation, subtotal, platformFee, total: subtotal + platformFee })

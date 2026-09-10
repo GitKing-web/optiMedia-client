@@ -5,7 +5,8 @@ import { prisma } from '../db/prisma.ts'
 import { normalizeEmail, normalizePhoneDigits, normalizeWhatsApp } from '../utils.ts'
 import { JWT_SECRET } from '../config.ts'
 import { getClientUrl } from '../config.ts'
-import { getEmailSender, getReplyTo, getResend, htmlToPlainText, sendVerificationEmail, wrapInEmailTemplate } from './email.service.ts'
+import { getEmailSender, getReplyTo, getResend, htmlToPlainText, sendVerificationEmail, sendWelcomeCouponEmail, wrapInEmailTemplate } from './email.service.ts'
+import { getWelcomeCoupon } from './coupon.service.ts'
 import type { AuthUser, JwtPayload, LoginBody, RegisterBody } from '../types.ts'
 
 const BCRYPT_ROUNDS = 10
@@ -180,6 +181,8 @@ export async function registerUser(body: RegisterBody) {
 
   await sendVerificationOtp(user.id).catch(() => null)
 
+  await sendWelcomeCouponForNewUser(user).catch(() => null)
+
   const token = jwt.sign(
     { sub: user.id, role: user.role, email: user.email } satisfies JwtPayload,
     JWT_SECRET,
@@ -187,6 +190,24 @@ export async function registerUser(body: RegisterBody) {
   )
 
   return { user, token }
+}
+
+async function sendWelcomeCouponForNewUser(user: { name: string; email: string }) {
+  const coupon = await getWelcomeCoupon()
+  if (!coupon) return
+
+  try {
+    await sendWelcomeCouponEmail(user.email, {
+      name: user.name,
+      code: coupon.code,
+      type: coupon.type,
+      value: coupon.value,
+      expiresAt: coupon.expiresAt ? new Date(coupon.expiresAt) : null,
+      shopUrl: `${CLIENT_URL}/subscriptions`,
+    })
+  } catch (error) {
+    console.error('Welcome coupon email failed:', error)
+  }
 }
 
 export async function forgotPassword(email: string) {

@@ -11,6 +11,8 @@ export interface CouponInput {
   minAmount?: number | null
   maxUses?: number | null
   expiresAt?: string | null
+  welcome?: boolean
+  oneTimePerUser?: boolean
 }
 
 interface CouponRecord {
@@ -22,6 +24,8 @@ interface CouponRecord {
   minAmount: number | null
   maxUses: number | null
   usedCount: number
+  welcome: boolean
+  oneTimePerUser: boolean
   expiresAt: Date | null
   createdAt: Date
   updatedAt: Date
@@ -37,6 +41,8 @@ function serialize(coupon: CouponRecord) {
     minAmount: coupon.minAmount,
     maxUses: coupon.maxUses,
     usedCount: coupon.usedCount,
+    welcome: coupon.welcome,
+    oneTimePerUser: coupon.oneTimePerUser,
     expiresAt: coupon.expiresAt?.toISOString() || null,
     createdAt: coupon.createdAt.toISOString(),
     updatedAt: coupon.updatedAt.toISOString(),
@@ -72,6 +78,11 @@ export async function createCoupon(input: CouponInput) {
   const existing = await prisma.coupon.findUnique({ where: { code } })
   if (existing) return { error: 'A coupon with this code already exists' }
 
+  const isWelcome = Boolean(input.welcome)
+  if (isWelcome) {
+    await prisma.coupon.updateMany({ where: { welcome: true }, data: { welcome: false } })
+  }
+
   const coupon = await prisma.coupon.create({
     data: {
       id: createId('cpn'),
@@ -82,6 +93,8 @@ export async function createCoupon(input: CouponInput) {
       minAmount: input.minAmount != null ? Math.max(0, Math.floor(Number(input.minAmount))) : null,
       maxUses: input.maxUses != null ? Math.max(1, Math.floor(Number(input.maxUses))) : null,
       expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
+      welcome: isWelcome,
+      oneTimePerUser: input.oneTimePerUser ?? isWelcome,
     },
   })
 
@@ -120,6 +133,14 @@ export async function updateCoupon(id: string, input: CouponInput) {
     data.maxUses = input.maxUses != null ? Math.max(1, Math.floor(Number(input.maxUses))) : null
   }
   if (input.expiresAt !== undefined) data.expiresAt = input.expiresAt ? new Date(input.expiresAt) : null
+  if (input.oneTimePerUser !== undefined) data.oneTimePerUser = Boolean(input.oneTimePerUser)
+
+  if (input.welcome !== undefined) {
+    data.welcome = Boolean(input.welcome)
+    if (input.welcome) {
+      await prisma.coupon.updateMany({ where: { welcome: true, id: { not: id } }, data: { welcome: false } })
+    }
+  }
 
   const coupon = await prisma.coupon.update({ where: { id }, data })
   return { coupon: serialize(coupon as CouponRecord) }
@@ -141,7 +162,7 @@ export interface CouponEvaluation {
   message: string
 }
 
-export async function evaluateCoupon(code: string, amount: number): Promise<CouponEvaluation> {
+export async function evaluateCoupon(code: string, amount: number, userId?: string): Promise<CouponEvaluation> {
   const normalized = normalizeCode(code)
   const coupon = await prisma.coupon.findUnique({ where: { code: normalized } })
 
@@ -152,6 +173,14 @@ export async function evaluateCoupon(code: string, amount: number): Promise<Coup
   }
   if (coupon.maxUses != null && coupon.usedCount >= coupon.maxUses) {
     return { valid: false, code: normalized, discount: 0, message: 'This coupon has reached its usage limit' }
+  }
+  if (coupon.oneTimePerUser && userId) {
+    const alreadyUsed = await prisma.couponRedemption.findUnique({
+      where: { couponId_userId: { couponId: coupon.id, userId } },
+    })
+    if (alreadyUsed) {
+      return { valid: false, code: normalized, discount: 0, message: 'You have already used this coupon' }
+    }
   }
   if (coupon.minAmount != null && amount < coupon.minAmount) {
     return {
@@ -173,10 +202,32 @@ export async function evaluateCoupon(code: string, amount: number): Promise<Coup
   }
 }
 
-export async function incrementCouponUsage(code: string) {
+export async function getWelcomeCoupon() {
+  const coupon = await prisma.coupon.findFirst({
+    where: { welcome: true, active: true },
+    orderBy: { updatedAt: 'desc' },
+  })
+
+  if (!coupon) return null
+  if (coupon.expiresAt && coupon.expiresAt.getTime() < Date.now()) return null
+  if (coupon.maxUses != null && coupon.usedCount >= coupon.maxUses) return null
+
+  return serialize(coupon as CouponRecord)
+}
+
+export async function recordCouponRedemption(code: string, userId: string, reference?: string) {
   const normalized = normalizeCode(code)
   const coupon = await prisma.coupon.findUnique({ where: { code: normalized } })
   if (!coupon) return
+
+  await prisma.couponRedemption
+    .upsert({
+      where: { couponId_userId: { couponId: coupon.id, userId } },
+      create: { couponId: coupon.id, userId, reference: reference || null },
+      update: { reference: reference || undefined },
+    })
+    .catch(() => null)
+
   await prisma.coupon.update({
     where: { id: coupon.id },
     data: { usedCount: { increment: 1 } },

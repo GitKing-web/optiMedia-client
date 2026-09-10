@@ -173,6 +173,8 @@ export interface Coupon {
     minAmount: number | null
     maxUses: number | null
     usedCount: number
+    welcome: boolean
+    oneTimePerUser: boolean
     expiresAt: string | null
     createdAt: string
     updatedAt: string
@@ -186,6 +188,8 @@ export interface CouponInput {
     minAmount?: number | null
     maxUses?: number | null
     expiresAt?: string | null
+    welcome?: boolean
+    oneTimePerUser?: boolean
 }
 
 interface AdminUsersResponse {

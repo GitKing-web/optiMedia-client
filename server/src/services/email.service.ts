@@ -263,3 +263,59 @@ export async function sendExpiryNoticeEmail(to: string, context: ServiceEmailCon
     replyTo: getReplyTo(),
   })
 }
+
+interface WelcomeCouponContext {
+  name: string
+  code: string
+  type: 'percentage' | 'fixed'
+  value: number
+  expiresAt?: Date | null
+  shopUrl: string
+}
+
+export async function sendWelcomeCouponEmail(to: string, context: WelcomeCouponContext) {
+  const resend = getResend()
+  if (!resend) return
+
+  const benefit =
+    context.type === 'percentage'
+      ? `${context.value}% OFF`
+      : `₦${context.value.toLocaleString()} OFF`
+
+  const expiryLine = context.expiresAt
+    ? `<p style="margin:0 0 16px;font-size:14px;color:#64748b;">Offer valid until ${context.expiresAt.toDateString()}.</p>`
+    : ''
+
+  const html = `
+    <h2 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#1e293b;">Welcome to ${'OptiMedia'}, ${firstName(context.name)}! 🎁</h2>
+    <p style="margin:0 0 16px;font-size:16px;color:#475569;line-height:1.6;">
+      Here's a special welcome gift — use the coupon below on your first subscription and save.
+    </p>
+    <div style="text-align:center;margin:28px 0;">
+      <p style="margin:0 0 8px;font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:2px;">Your ${benefit} coupon</p>
+      <div style="display:inline-block;background:#eef2ff;border:2px dashed #6366f1;color:#4338ca;padding:16px 32px;border-radius:12px;font-size:26px;font-weight:800;letter-spacing:6px;font-family:monospace;">
+        ${context.code}
+      </div>
+    </div>
+    ${expiryLine}
+    <p style="margin:0 0 8px;font-size:15px;color:#475569;line-height:1.6;">
+      Apply it at checkout to claim your discount. This code can be used once on your account.
+    </p>
+    ${ctaButton('Start saving now', context.shopUrl)}
+    <p style="margin:24px 0 0;font-size:13px;color:#94a3b8;line-height:1.6;">
+      Enjoying OptiMedia? Invite a friend and share the savings.
+    </p>
+  `
+
+  const plainText = `Welcome to OptiMedia, ${firstName(context.name)}!\n\nHere's your welcome coupon: ${context.code} (${benefit}).\nUse it at checkout — valid once on your account.${context.expiresAt ? `\nValid until ${context.expiresAt.toDateString()}.` : ''}\n\nShop: ${context.shopUrl}`
+
+  await deliverEmail({
+    from: getEmailSender(),
+    to: [to],
+    subject: `Your ${benefit} welcome coupon is here`,
+    html: wrapInEmailTemplate(html, `Use code ${context.code} for ${benefit} on your first order`),
+    text: plainText,
+    replyTo: getReplyTo(),
+  })
+}
+

@@ -51,6 +51,7 @@ model User {
   activities         Activity[]
   payments           Payment[]
   passwordResetTokens PasswordResetToken[]
+  couponRedemptions  CouponRedemption[]
 }
 
 model Service {
@@ -139,12 +140,32 @@ model Coupon {
   minAmount Int?
   maxUses   Int?
   usedCount Int        @default(0)
+  welcome   Boolean    @default(false)
+  oneTimePerUser Boolean @default(false)
   expiresAt DateTime?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
+  redemptions CouponRedemption[]
+
   @@index([code])
   @@index([active])
+  @@index([welcome])
+}
+
+model CouponRedemption {
+  id        String   @id @default(cuid())
+  couponId  String
+  userId    String
+  reference String?
+  createdAt DateTime @default(now())
+
+  coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([couponId, userId])
+  @@index([couponId])
+  @@index([userId])
 }
 
 model PasswordResetToken {

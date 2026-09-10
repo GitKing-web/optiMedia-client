@@ -27,6 +27,8 @@ const form = ref({
     minAmount: '' as string | number,
     maxUses: '' as string | number,
     expiresAt: '',
+    welcome: false,
+    oneTimePerUser: false,
 })
 
 const filtered = computed(() => {
@@ -52,7 +54,7 @@ onMounted(() => {
 function openCreate() {
     editMode.value = false
     message.value = null
-    form.value = { id: '', code: '', type: 'percentage', value: 10, active: true, minAmount: '', maxUses: '', expiresAt: '' }
+    form.value = { id: '', code: '', type: 'percentage', value: 10, active: true, minAmount: '', maxUses: '', expiresAt: '', welcome: false, oneTimePerUser: false }
     showModal.value = true
 }
 
@@ -68,6 +70,8 @@ function openEdit(coupon: Coupon) {
         minAmount: coupon.minAmount ?? '',
         maxUses: coupon.maxUses ?? '',
         expiresAt: coupon.expiresAt ? coupon.expiresAt.slice(0, 10) : '',
+        welcome: coupon.welcome,
+        oneTimePerUser: coupon.oneTimePerUser,
     }
     showModal.value = true
 }
@@ -90,6 +94,8 @@ async function save() {
         minAmount: form.value.minAmount === '' ? null : Number(form.value.minAmount),
         maxUses: form.value.maxUses === '' ? null : Number(form.value.maxUses),
         expiresAt: form.value.expiresAt || null,
+        welcome: form.value.welcome,
+        oneTimePerUser: form.value.oneTimePerUser,
     }
 
     try {
@@ -223,9 +229,17 @@ async function handleLogout() {
                         <tbody class="divide-y divide-white/5">
                             <tr v-for="coupon in pagedCoupons" :key="coupon.id" class="hover:bg-white/5 transition-all">
                                 <td class="px-5 py-4">
-                                    <span class="font-black text-sm tracking-wider text-primary">{{ coupon.code }}</span>
-                                    <p v-if="coupon.minAmount != null" class="text-[10px] text-white/30 mt-0.5">
-                                        Min ₦{{ coupon.minAmount.toLocaleString() }}
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <span class="font-black text-sm tracking-wider text-primary">{{ coupon.code }}</span>
+                                        <span v-if="coupon.welcome"
+                                            class="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-amber-500/15 text-amber-300">
+                                            Welcome
+                                        </span>
+                                    </div>
+                                    <p class="text-[10px] text-white/30 mt-0.5">
+                                        <span v-if="coupon.minAmount != null">Min ₦{{ coupon.minAmount.toLocaleString() }}</span>
+                                        <span v-if="coupon.minAmount != null && coupon.oneTimePerUser"> · </span>
+                                        <span v-if="coupon.oneTimePerUser">Once per user</span>
                                     </p>
                                 </td>
                                 <td class="px-5 py-4 text-sm font-bold">{{ discountLabel(coupon) }}</td>
@@ -332,6 +346,28 @@ async function handleLogout() {
                             class="w-5 h-5 rounded border-white/20 text-primary focus:ring-primary cursor-pointer" />
                         <span class="text-sm font-bold text-white/70">Active (available at checkout)</span>
                     </label>
+                    <div class="rounded-2xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+                        <label class="flex items-start gap-3 cursor-pointer select-none">
+                            <input v-model="form.welcome" type="checkbox"
+                                class="mt-0.5 w-5 h-5 rounded border-white/20 text-primary focus:ring-primary cursor-pointer" />
+                            <span class="text-sm font-bold text-white/80">
+                                Welcome coupon
+                                <span class="block text-[11px] font-medium text-white/40 mt-0.5">
+                                    Emailed automatically to every new signup. Only one welcome coupon is active at a time.
+                                </span>
+                            </span>
+                        </label>
+                        <label class="flex items-start gap-3 cursor-pointer select-none">
+                            <input v-model="form.oneTimePerUser" type="checkbox"
+                                class="mt-0.5 w-5 h-5 rounded border-white/20 text-primary focus:ring-primary cursor-pointer" />
+                            <span class="text-sm font-bold text-white/80">
+                                One-time use per user
+                                <span class="block text-[11px] font-medium text-white/40 mt-0.5">
+                                    Each customer can redeem this code only once.
+                                </span>
+                            </span>
+                        </label>
+                    </div>
                     <p v-if="message" class="text-xs font-bold text-red-400">{{ message.text }}</p>
                 </div>
                 <div class="flex gap-3 mt-6">
