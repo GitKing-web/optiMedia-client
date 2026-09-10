@@ -86,6 +86,42 @@ export interface NewsletterSubscriber {
     createdAt: string
 }
 
+export type FamilySlotStatus = 'vacant' | 'occupied' | 'expired'
+
+export interface FamilySlot {
+    id: string
+    slotNumber: number
+    memberName: string | null
+    memberEmail: string | null
+    memberContact: string | null
+    status: FamilySlotStatus
+    startDate: string | null
+    expireDate: string | null
+    notes: string | null
+}
+
+export interface FamilyAccount {
+    id: string
+    label: string
+    serviceName: string
+    masterEmail: string
+    masterPassword: string | null
+    capacity: number
+    monthlyCost: number | null
+    renewalDate: string | null
+    notes: string | null
+    createdAt: string
+    updatedAt: string
+    slots: FamilySlot[]
+    summary: {
+        capacity: number
+        occupied: number
+        expired: number
+        vacant: number
+        utilization: number
+    }
+}
+
 interface AdminUsersResponse {
     summary: AdminSummary
     users: AdminUserRow[]
@@ -113,6 +149,9 @@ export const useAdminStore = defineStore('admin', () => {
 
     const newsletterSubscribers = ref<NewsletterSubscriber[]>([])
     const isNewsletterLoading = ref(false)
+
+    const familyAccounts = ref<FamilyAccount[]>([])
+    const isFamilyLoading = ref(false)
 
     const filteredUsers = computed(() => users.value)
 
@@ -292,6 +331,93 @@ export const useAdminStore = defineStore('admin', () => {
         newsletterSubscribers.value = newsletterSubscribers.value.filter((s) => s.id !== id)
     }
 
+    async function fetchFamilyAccounts() {
+        if (!authStore.isAuthenticated) return []
+        isFamilyLoading.value = true
+        try {
+            const response = await apiFetch<{ accounts: FamilyAccount[] }>('/api/admin/family')
+            familyAccounts.value = response.accounts
+            return response.accounts
+        } catch {
+            familyAccounts.value = []
+            return []
+        } finally {
+            isFamilyLoading.value = false
+        }
+    }
+
+    async function createFamilyAccount(payload: {
+        label: string
+        serviceName: string
+        masterEmail: string
+        masterPassword?: string
+        capacity?: number
+        monthlyCost?: number | null
+        renewalDate?: string | null
+        notes?: string | null
+    }) {
+        if (!authStore.isAuthenticated) throw new Error('Unauthorized')
+        const response = await apiFetch<{ account: FamilyAccount }>('/api/admin/family', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        })
+        await fetchFamilyAccounts()
+        return response.account
+    }
+
+    async function updateFamilyAccount(id: string, payload: Record<string, unknown>) {
+        if (!authStore.isAuthenticated) throw new Error('Unauthorized')
+        await apiFetch<{ account: FamilyAccount }>(`/api/admin/family/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify(payload),
+        })
+        await fetchFamilyAccounts()
+    }
+
+    async function deleteFamilyAccount(id: string) {
+        if (!authStore.isAuthenticated) throw new Error('Unauthorized')
+        await apiFetch<{ message: string }>(`/api/admin/family/${id}`, { method: 'DELETE' })
+        familyAccounts.value = familyAccounts.value.filter((a) => a.id !== id)
+    }
+
+    async function assignFamilySlot(
+        accountId: string,
+        slotId: string,
+        payload: { memberName: string; memberEmail?: string; memberContact?: string; months?: number; notes?: string },
+    ) {
+        if (!authStore.isAuthenticated) throw new Error('Unauthorized')
+        await apiFetch<{ slot: FamilySlot }>(`/api/admin/family/${accountId}/slots/${slotId}`, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        })
+        await fetchFamilyAccounts()
+    }
+
+    async function extendFamilySlot(accountId: string, slotId: string, months: number) {
+        if (!authStore.isAuthenticated) throw new Error('Unauthorized')
+        await apiFetch<{ slot: FamilySlot }>(`/api/admin/family/${accountId}/slots/${slotId}/extend`, {
+            method: 'POST',
+            body: JSON.stringify({ months }),
+        })
+        await fetchFamilyAccounts()
+    }
+
+    async function vacateFamilySlot(accountId: string, slotId: string) {
+        if (!authStore.isAuthenticated) throw new Error('Unauthorized')
+        await apiFetch<{ slot: FamilySlot }>(`/api/admin/family/${accountId}/slots/${slotId}`, { method: 'DELETE' })
+        await fetchFamilyAccounts()
+    }
+
+    async function cleanupFamilySlots(accountId: string) {
+        if (!authStore.isAuthenticated) throw new Error('Unauthorized')
+        const response = await apiFetch<{ message: string; freed: number }>(
+            `/api/admin/family/${accountId}/cleanup`,
+            { method: 'POST' },
+        )
+        await fetchFamilyAccounts()
+        return response
+    }
+
     return {
         activeTab,
         users,
@@ -308,6 +434,8 @@ export const useAdminStore = defineStore('admin', () => {
         bulkActivating,
         newsletterSubscribers,
         isNewsletterLoading,
+        familyAccounts,
+        isFamilyLoading,
         fetchUsers,
         fetchSummary,
         activateSubscription,
@@ -319,6 +447,14 @@ export const useAdminStore = defineStore('admin', () => {
         sendEmail,
         fetchNewsletterSubscribers,
         removeNewsletterSubscriber,
+        fetchFamilyAccounts,
+        createFamilyAccount,
+        updateFamilyAccount,
+        deleteFamilyAccount,
+        assignFamilySlot,
+        extendFamilySlot,
+        vacateFamilySlot,
+        cleanupFamilySlots,
         refresh
     }
 })

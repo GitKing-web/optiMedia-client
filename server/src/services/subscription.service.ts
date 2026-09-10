@@ -119,11 +119,12 @@ export async function requestSubscription(user: AuthUser, service: Service) {
   })
 
   return {
-    subscription: created,
+    subscription: created.subscription,
   }
 }
 
-export async function createPendingSubscription(user: AuthUser, service: Service) {
+export async function createPendingSubscription(user: AuthUser, service: Service, months: number = 1) {
+  const safeMonths = normalizeMonths(months)
   const existingSubscription = await prisma.subscription.findFirst({
     where: {
       userId: user.id,
@@ -145,8 +146,10 @@ export async function createPendingSubscription(user: AuthUser, service: Service
       serviceId: service.id,
       status: 'pending',
       price: service.price,
+      months: safeMonths,
       icon: service.icon,
       bg: service.bg,
+      durationDays: safeMonths * 30,
     },
     include: { service: true },
   })
@@ -157,6 +160,52 @@ export async function createPendingSubscription(user: AuthUser, service: Service
       service: serializeService(subscription.service),
     },
   }
+}
+
+const ALLOWED_MONTHS = [1, 2, 3]
+
+export function normalizeMonths(value: unknown): number {
+  const numeric = Number(value)
+  return ALLOWED_MONTHS.includes(numeric) ? numeric : 1
+}
+
+export async function grantPaidMonths(subscriptionId: string, months: number) {
+  const safeMonths = normalizeMonths(months)
+  const subscription = await prisma.subscription.findUnique({ where: { id: subscriptionId } })
+  if (!subscription) {
+    return { error: 'Subscription not found' }
+  }
+
+  const now = new Date()
+  const extraDays = safeMonths * 30
+
+  if (subscription.status === 'active') {
+    const currentExpiry = subscription.nextBilling && subscription.nextBilling > now ? subscription.nextBilling : now
+    const nextBilling = new Date(addDays(currentExpiry, extraDays))
+
+    const updated = await prisma.subscription.update({
+      where: { id: subscriptionId },
+      data: {
+        months: (subscription.months || 1) + safeMonths,
+        durationDays: (subscription.durationDays || 0) + extraDays,
+        nextBilling,
+      },
+      include: { service: true },
+    })
+
+    return { subscription: { ...updated, service: serializeService(updated.service) } }
+  }
+
+  const updated = await prisma.subscription.update({
+    where: { id: subscriptionId },
+    data: {
+      months: safeMonths,
+      durationDays: extraDays,
+    },
+    include: { service: true },
+  })
+
+  return { subscription: { ...updated, service: serializeService(updated.service) } }
 }
 
 export async function updateSubscriptionStatus(subscriptionId: string, status: SubscriptionStatus) {

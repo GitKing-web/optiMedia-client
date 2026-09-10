@@ -128,15 +128,17 @@ export async function activateAdminUser(userId: string) {
     return { error: 'Only pending subscriptions can be activated' }
   }
 
+  const months = pendingSubscription.months || 1
+  const durationDays = months * 30
   const startDate = new Date()
-  const expireDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+  const expireDate = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000)
 
   await prisma.subscription.update({
     where: { id: pendingSubscription.id },
     data: {
       status: 'active',
       activeDate: startDate,
-      durationDays: 30,
+      durationDays,
       nextBilling: expireDate,
     },
   })
@@ -146,7 +148,7 @@ export async function activateAdminUser(userId: string) {
       userId: user.id,
       type: 'payment',
       service: `${pendingSubscription.service.name} Renewal`,
-      amount: money(pendingSubscription.price),
+      amount: money(pendingSubscription.price * months),
       status: 'Completed',
       date: 'Just now',
       icon: 'fa-solid fa-credit-card',
@@ -277,12 +279,14 @@ export async function bulkActivateUsers(userIds: string[]) {
         continue
       }
 
+      const months = pending.months || 1
+      const durationDays = months * 30
       const startDate = new Date()
-      const expireDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      const expireDate = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000)
 
       await prisma.subscription.update({
         where: { id: pending.id },
-        data: { status: 'active', activeDate: startDate, durationDays: 30, nextBilling: expireDate },
+        data: { status: 'active', activeDate: startDate, durationDays, nextBilling: expireDate },
       })
 
       await prisma.activity.create({
@@ -290,7 +294,7 @@ export async function bulkActivateUsers(userIds: string[]) {
           userId,
           type: 'payment',
           service: `${pending.service.name} Renewal`,
-          amount: money(pending.price),
+          amount: money(pending.price * months),
           status: 'Completed',
           date: 'Just now',
           icon: 'fa-solid fa-credit-card',
@@ -441,7 +445,7 @@ export async function sendEmailBroadcast(payload: { subject: string; html: strin
       subject: payload.subject,
       html: wrappedHtml,
       text: plainText,
-      reply_to: replyTo,
+      replyTo: replyTo,
       headers: {
         'List-Unsubscribe': `<mailto:support@optimedia.solution.com?subject=unsubscribe>`,
         'X-Mailer': 'OptiMedia',

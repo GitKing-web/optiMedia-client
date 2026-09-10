@@ -4,7 +4,8 @@ import { prisma } from '../db/prisma.ts'
 import { findAuthUserById } from './auth.service.ts'
 import { createId, money } from '../utils.ts'
 import type { AuthUser, Service } from '../types.ts'
-import { createPendingSubscription } from './subscription.service.ts'
+import { createPendingSubscription, grantPaidMonths, normalizeMonths } from './subscription.service.ts'
+import { sendSubscriptionWelcomeEmail } from './reminder.service.ts'
 
 const PAYSTACK_API_BASE = 'https://api.paystack.co'
 
@@ -132,6 +133,9 @@ async function finalizeSuccessfulPayment(paymentReference: string, transaction: 
     return { error: 'Service not found for this payment' }
   }
 
+  const months = normalizeMonths(payment.months ?? 1)
+  const totalAmount = service.price * months
+
   let subscription = await prisma.subscription.findFirst({
     where: {
       userId: user.id,
@@ -142,12 +146,17 @@ async function finalizeSuccessfulPayment(paymentReference: string, transaction: 
   })
 
   if (!subscription) {
-    const created = await createPendingSubscription(user, service)
+    const created = await createPendingSubscription(user, service, months)
     if ('error' in created) {
       return created
     }
 
-    subscription = created.subscription as unknown as typeof subscription
+    subscription = created.subscription as NonNullable<typeof subscription>
+  } else {
+    const granted = await grantPaidMonths(subscription.id, months)
+    if ('subscription' in granted) {
+      subscription = granted.subscription as NonNullable<typeof subscription>
+    }
   }
 
   await prisma.activity.create({
@@ -155,8 +164,8 @@ async function finalizeSuccessfulPayment(paymentReference: string, transaction: 
       id: createId('act'),
       userId: user.id,
       type: 'payment',
-      service: `${service.name} Payment`,
-      amount: money(service.price),
+      service: `${service.name} Payment${months > 1 ? ` (${months} months)` : ''}`,
+      amount: money(totalAmount),
       status: 'Completed',
       date: 'Just now',
       icon: service.icon,
@@ -173,6 +182,10 @@ async function finalizeSuccessfulPayment(paymentReference: string, transaction: 
     },
   })
 
+  await sendSubscriptionWelcomeEmail(subscription.id).catch((error) => {
+    console.error('Welcome email failed:', error)
+  })
+
   return {
     message: 'Payment verified successfully',
     payment: updatedPayment,
@@ -180,18 +193,22 @@ async function finalizeSuccessfulPayment(paymentReference: string, transaction: 
   }
 }
 
-export async function createPaystackCheckout(user: AuthUser, service: Service) {
+export async function createPaystackCheckout(user: AuthUser, service: Service, monthsInput: unknown = 1) {
+  const months = normalizeMonths(monthsInput)
+  const totalAmount = service.price * months
   const reference = generateReference()
   const callbackUrl = `${getClientUrl()}/subscriptions/${service.slug}?reference=${reference}`
   const payload: PaystackInitializationPayload = {
     email: user.email,
-    amount: service.price * 100,
+    amount: totalAmount * 100,
     reference,
     callback_url: callbackUrl,
     metadata: {
       userId: user.id,
       serviceId: service.id,
       serviceSlug: service.slug,
+      months,
+      monthlyPrice: service.price,
     },
   }
 
@@ -204,7 +221,8 @@ export async function createPaystackCheckout(user: AuthUser, service: Service) {
       serviceId: service.id,
       reference,
       gateway: 'paystack',
-      amount: service.price,
+      amount: totalAmount,
+      months,
       status: 'pending',
       authorizationUrl: response.data.authorization_url,
       accessCode: response.data.access_code,
@@ -215,6 +233,8 @@ export async function createPaystackCheckout(user: AuthUser, service: Service) {
     message: 'Paystack checkout initialized',
     authorizationUrl: response.data.authorization_url,
     reference: response.data.reference,
+    months,
+    amount: totalAmount,
   }
 }
 

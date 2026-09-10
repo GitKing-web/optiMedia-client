@@ -50,6 +50,12 @@ const routes = [
         meta: { hideNavbar: true, hideFooter: true, requiresAuth: true, requiresAdmin: true }
     },
     {
+        path: '/admin/family',
+        name: 'AdminFamily',
+        component: () => import('../views/AdminFamily.vue'),
+        meta: { hideNavbar: true, hideFooter: true, requiresAuth: true, requiresAdmin: true }
+    },
+    {
         path: '/login',
         name: 'Login',
         component: () => import('../views/Login.vue'),

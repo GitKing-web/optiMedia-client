@@ -10,6 +10,8 @@ const subStore = useSubscriptionStore()
 const authStore = useAuthStore()
 const isRedirecting = ref(false)
 const statusMessage = ref('')
+const selectedMonths = ref(1)
+const monthOptions = [1, 2, 3]
 
 const serviceNameParam = computed(() => String(route.params.name || '').toLowerCase())
 
@@ -21,6 +23,14 @@ const matchedService = computed(() => {
         const serviceKey = param.split('-')[0]
         return canonical.includes(param) || readable.includes(serviceKey)
     })
+})
+
+const totalPrice = computed(() => (matchedService.value ? matchedService.value.price * selectedMonths.value : 0))
+
+const savingsNote = computed(() => {
+    if (selectedMonths.value === 1) return 'Billed monthly'
+    const months = selectedMonths.value
+    return `₦${(matchedService.value!.price * months).toLocaleString()} upfront · ${months} months of access`
 })
 
 onMounted(async () => {
@@ -73,7 +83,7 @@ async function handleSubscribe() {
             await authStore.fetchCurrentUser().catch(() => null)
         }
 
-        const response = await subStore.initializePaystackCheckout(matchedService.value)
+        const response = await subStore.initializePaystackCheckout(matchedService.value, selectedMonths.value)
         window.location.assign(response.authorizationUrl)
     } catch (error) {
         const message = error instanceof Error ? error.message : ''
@@ -144,11 +154,31 @@ async function handleSubscribe() {
                     class="w-full lg:w-80 bg-black/30 border border-white/5 rounded-[1.8rem] sm:rounded-[2.5rem] p-6 sm:p-8 flex flex-col justify-between backdrop-blur-sm gap-6"
                 >
                     <div class="text-center lg:text-left">
-                        <p class="text-[10px] font-black uppercase tracking-widest text-primary mb-2">Monthly Membership</p>
+                        <p class="text-[10px] font-black uppercase tracking-widest text-primary mb-2">Choose Duration</p>
+                        <div class="flex gap-2">
+                            <button
+                                v-for="option in monthOptions"
+                                :key="option"
+                                @click="selectedMonths = option"
+                                class="flex-1 py-3 rounded-xl border font-black text-xs uppercase tracking-widest transition-all"
+                                :class="selectedMonths === option
+                                    ? 'bg-primary text-white border-primary shadow-lg shadow-primary/30'
+                                    : 'bg-black/20 text-white/50 border-white/10 hover:text-white hover:border-white/30'"
+                            >
+                                {{ option }} {{ option === 1 ? 'Month' : 'Months' }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="text-center lg:text-left">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-primary mb-2">Total To Pay</p>
                         <h2 class="text-4xl sm:text-5xl font-black text-white tracking-tight">
-                            ₦{{ matchedService.price.toLocaleString() }}
-                            <span class="text-xs font-bold text-white/40 tracking-normal block sm:inline sm:mt-0 mt-1">/ month</span>
+                            ₦{{ totalPrice.toLocaleString() }}
+                            <span class="text-xs font-bold text-white/40 tracking-normal block sm:inline sm:mt-0 mt-1">
+                                / {{ selectedMonths }} {{ selectedMonths === 1 ? 'month' : 'months' }}
+                            </span>
                         </h2>
+                        <p class="text-[11px] font-bold text-white/40 mt-2">{{ savingsNote }}</p>
                     </div>
 
                     <div class="space-y-4">
@@ -162,7 +192,7 @@ async function handleSubscribe() {
                         </div>
                         <div class="flex items-center gap-3 text-white/70 font-bold text-sm">
                             <i class="fa-solid fa-circle-check text-primary text-lg shrink-0"></i>
-                            <span>Instant Activation</span>
+                            <span>{{ selectedMonths * 30 }} days of access</span>
                         </div>
                         <div class="flex items-center gap-3 text-white/70 font-bold text-sm">
                             <i class="fa-solid fa-circle-check text-primary text-lg shrink-0"></i>
@@ -175,7 +205,7 @@ async function handleSubscribe() {
                         :disabled="isRedirecting"
                         class="w-full bg-primary text-white py-4 rounded-xl font-black uppercase tracking-widest hover:brightness-110 active:scale-[0.98] transition-all shadow-xl shadow-primary/30 flex items-center justify-center gap-3 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                        {{ isRedirecting ? 'Processing...' : 'Subscribe Now' }}
+                        {{ isRedirecting ? 'Processing...' : `Pay ₦${totalPrice.toLocaleString()}` }}
                         <i class="fa-solid fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
                     </button>
 

@@ -23,8 +23,10 @@ export async function initializePaystackController(req: AuthenticatedRequest, re
     return
   }
 
+  const months = req.body?.months
+
   try {
-    const result = await createPaystackCheckout(user, service)
+    const result = await createPaystackCheckout(user, service, months)
     res.json(result)
   } catch (error) {
     res.status(502).json({
@@ -49,24 +51,29 @@ export async function verifyPaystackController(req: AuthenticatedRequest, res: R
 
   try {
     const result = await verifyPaystackCheckout(user, reference)
-    if ('error' in result) {
+    if ('error' in result && result.error) {
       res.status(400).json({ message: result.error })
       return
     }
 
+    const payment = 'payment' in result ? result.payment : null
+    const subscription = 'subscription' in result ? result.subscription : null
+
     res.json({
-      message: result.message,
-      payment: {
-        reference: result.payment.reference,
-        status: result.payment.status,
-        amount: result.payment.amount,
-      },
-      subscription: result.subscription
+      message: 'message' in result ? result.message : 'Payment verified',
+      payment: payment
         ? {
-            ...result.subscription,
-            service: result.subscription.service
+            reference: payment.reference,
+            status: payment.status,
+            amount: payment.amount,
+          }
+        : null,
+      subscription: subscription
+        ? {
+            ...subscription,
+            service: subscription.service
               ? {
-                  ...result.subscription.service,
+                  ...subscription.service,
                 }
               : null,
           }

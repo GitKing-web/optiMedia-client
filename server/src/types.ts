@@ -33,6 +33,7 @@ export interface Subscription {
   serviceId: string
   status: SubscriptionStatus
   price: number
+  months: number
   icon: string
   bg: string
   activeDate: Date | null

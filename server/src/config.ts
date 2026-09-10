@@ -23,3 +23,26 @@ export const AUTH_COOKIE_NAME = 'optimedia_token'
 export function getClientUrl() {
   return process.env.CLIENT_URL || 'http://localhost:3001'
 }
+
+export type SameSiteOption = 'lax' | 'strict' | 'none'
+
+function isCrossSiteDeployment() {
+  if (isProduction) return true
+  const clientUrl = process.env.CLIENT_URL || ''
+  return clientUrl.startsWith('https://') && !clientUrl.includes('localhost')
+}
+
+export function getCookieSameSite(): SameSiteOption {
+  const configured = (process.env.COOKIE_SAME_SITE || '').toLowerCase()
+  if (configured === 'lax' || configured === 'strict' || configured === 'none') {
+    return configured
+  }
+  return isCrossSiteDeployment() ? 'none' : 'lax'
+}
+
+export function isCookieSecure(): boolean {
+  const configured = (process.env.COOKIE_SECURE || '').toLowerCase()
+  if (configured === 'true') return true
+  if (configured === 'false') return false
+  return isCrossSiteDeployment()
+}

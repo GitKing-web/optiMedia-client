@@ -74,11 +74,15 @@ model Subscription {
   serviceId    String
   status       SubscriptionStatus  @default(pending)
   price        Int
+  months       Int                 @default(1)
   icon         String
   bg           String
   activeDate   DateTime?
   durationDays Int?
   nextBilling  DateTime?
+  welcomeEmailSentAt DateTime?
+  reminder3dSentAt   DateTime?
+  expiryNoticeSentAt DateTime?
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
 
@@ -100,6 +104,7 @@ model Payment {
   reference         String        @unique
   gateway           String        @default("paystack")
   amount            Int
+  months            Int           @default(1)
   status            PaymentStatus @default(pending)
   authorizationUrl  String?
   accessCode        String?
@@ -155,4 +160,48 @@ model NewsletterSubscriber {
   createdAt DateTime @default(now())
 
   @@index([email])
+}
+
+enum FamilySlotStatus {
+  vacant
+  occupied
+  expired
+}
+
+model FamilyAccount {
+  id             String   @id @default(cuid())
+  label          String
+  serviceName    String
+  masterEmail    String
+  masterPassword String?
+  capacity       Int      @default(6)
+  monthlyCost    Int?
+  renewalDate    DateTime?
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  slots          FamilySlot[]
+
+  @@index([serviceName])
+}
+
+model FamilySlot {
+  id              String           @id @default(cuid())
+  familyAccountId String
+  slotNumber      Int
+  memberName      String?
+  memberEmail     String?
+  memberContact   String?
+  status          FamilySlotStatus @default(vacant)
+  startDate       DateTime?
+  expireDate      DateTime?
+  notes           String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  familyAccount FamilyAccount @relation(fields: [familyAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([familyAccountId, slotNumber])
+  @@index([familyAccountId])
+  @@index([status])
 }

@@ -3,6 +3,7 @@ dotenv.config()
 
 import app from './src/app.ts'
 import { seedDatabase } from './src/data/seed.ts'
+import { startReminderScheduler } from './src/services/reminder.service.ts'
 
 const PORT = Number(process.env.PORT || 3000)
 
@@ -11,6 +12,7 @@ try {
 
   app.listen(PORT, () => {
     console.log(`server running on port ${PORT}`)
+    startReminderScheduler()
   })
 } catch (error) {
   console.error(error)

@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser'
 import dotenv from 'dotenv'
 import authRoutes from './routes/auth.routes.ts'
 import catalogRoutes from './routes/catalog.routes.ts'
+import familyRoutes from './routes/family.routes.ts'
 import newsLetterRoutes from './routes/newsletter.routes.ts'
 import paymentRoutes from './routes/payment.routes.ts'
 import subscriptionRoutes from './routes/subscription.routes.ts'
@@ -14,22 +15,15 @@ dotenv.config()
 
 const app = express()
 
-app.use(helmet())
-
-const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:3001')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean)
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  }),
+)
 
 app.use(
   cors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true)
-        return
-      }
-      callback(new Error('Not allowed by CORS'))
-    },
+    origin: (origin, callback) => callback(null, origin || '*'),
     credentials: true,
   }),
 )
@@ -54,6 +48,7 @@ app.use('/api', newsLetterRoutes)
 app.use('/api/auth', authRoutes)
 app.use('/api', subscriptionRoutes)
 app.use('/api', paymentRoutes)
+app.use('/api/admin/family', familyRoutes)
 app.use('/api/admin', adminRoutes)
 
 app.use((_req, res) => {

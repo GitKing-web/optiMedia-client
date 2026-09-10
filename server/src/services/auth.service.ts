@@ -237,7 +237,7 @@ export async function forgotPassword(email: string) {
         subject: 'Reset your OptiMedia password',
         html: wrapInEmailTemplate(html, 'Click the link to reset your OptiMedia password'),
         text: plainText,
-        reply_to: getReplyTo(),
+        replyTo: getReplyTo(),
         headers: {
           'List-Unsubscribe': `<mailto:support@optimedia.solution.com?subject=unsubscribe>`,
         },

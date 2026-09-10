@@ -9,6 +9,7 @@ export interface Subscription {
     name: string
     status: 'active' | 'expired' | 'canceled' | 'pending'
     price: number
+    months?: number
     nextBilling?: string
     icon: string
     bg: string
@@ -83,6 +84,8 @@ interface PaystackInitializationResponse {
     message: string
     authorizationUrl: string
     reference: string
+    months?: number
+    amount?: number
 }
 
 interface PaystackVerificationResponse {
@@ -193,14 +196,14 @@ export const useSubscriptionStore = defineStore('subscription', () => {
         return mapped
     }
 
-    async function initializePaystackCheckout(service: Service) {
+    async function initializePaystackCheckout(service: Service, months: number = 1) {
         if (!authStore.isAuthenticated) {
             throw new Error('You must be logged in to continue')
         }
 
         return apiFetch<PaystackInitializationResponse>('/api/payments/paystack/initialize', {
             method: 'POST',
-            body: JSON.stringify({ serviceId: service.id })
+            body: JSON.stringify({ serviceId: service.id, months })
         })
     }
 

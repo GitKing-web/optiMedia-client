@@ -65,6 +65,11 @@ async function handleLogout() {
                     <i class="fa-solid fa-envelope-open-text text-lg"></i>
                     Newsletter
                 </button>
+                <button @click="router.push('/admin/family')"
+                    class="w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold text-sm tracking-tight text-white/40 hover:text-white hover:bg-white/5 transition-all text-left">
+                    <i class="fa-solid fa-users-rectangle text-lg"></i>
+                    Family Slots
+                </button>
             </nav>
             <div class="mt-auto pt-6 border-t border-white/5 flex flex-col gap-2">
                 <button @click="adminStore.downloadCSV()"
