@@ -23,3 +23,12 @@ export const passwordResetRateLimiter = rateLimit({
   legacyHeaders: false,
   message: { message: 'Too many password reset requests. Please try again later.' },
 })
+
+
+export const otpRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many verification code requests. Please try again later.' },
+})

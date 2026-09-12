@@ -103,14 +103,17 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
-    async function sendVerificationOtp() {
-        return apiFetch<{ message: string }>('/api/auth/send-otp', { method: 'POST' })
+    async function sendVerificationOtp(email?: string) {
+        return apiFetch<{ message: string }>('/api/auth/send-otp', {
+            method: 'POST',
+            body: JSON.stringify({ email })
+        })
     }
 
-    async function verifyEmail(code: string) {
+    async function verifyEmail(email: string, code: string) {
         const response = await apiFetch<{ message: string; user: UserProfile }>('/api/auth/verify-email', {
             method: 'POST',
-            body: JSON.stringify({ code })
+            body: JSON.stringify({ email, code })
         })
 
         if (user.value) {

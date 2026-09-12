@@ -49,10 +49,11 @@ export async function sendVerificationOtp(userId: string) {
   }
 }
 
-export async function verifyEmailOtp(userId: string, code: string) {
-  const user = await prisma.user.findUnique({ where: { id: userId } })
+export async function verifyEmailOtp(email: string, code: string) {
+  const normalized = normalizeEmail(email)
+  const user = await prisma.user.findUnique({ where: { email: normalized } })
   if (!user) {
-    return { error: 'User not found' }
+    return { error: 'Invalid email or verification code' }
   }
 
   if (user.emailVerified) {
@@ -101,6 +102,12 @@ export function publicUser(user: AuthUser) {
 export async function findAuthUserById(id: string) {
   return prisma.user.findUnique({
     where: { id },
+  })
+}
+
+export async function findAuthUserByEmail(email: string) {
+  return prisma.user.findUnique({
+    where: { email: normalizeEmail(email) },
   })
 }
 

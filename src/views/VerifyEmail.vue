@@ -6,7 +6,6 @@ const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 
-// 6-digit OTP state array
 const otp = reactive<string[]>(['', '', '', '', '', ''])
 const inputRefs = ref<HTMLInputElement[]>([])
 
@@ -15,7 +14,6 @@ const errorMessage = ref('')
 const successMessage = ref('')
 const userEmail = ref('')
 
-// Cooldown timer for resend
 const resendTimer = ref(60)
 const canResend = ref(false)
 
@@ -38,48 +36,40 @@ const startResendTimer = () => {
 }
 
 onMounted(async () => {
-  // Grab email from router query (e.g. /verify-email?email=user@example.com) or auth store
   userEmail.value = (route.query.email as string) || authStore.user?.email || ''
-  startResendTimer()
+
+  if (!userEmail.value && authStore.isAuthenticated) {
+    try {
+      const me = await authStore.fetchCurrentUser()
+      userEmail.value = me?.email || ''
+    } catch {
+    }
+  }
+
+  canResend.value = true
+  resendTimer.value = 0
 
   // Auto-focus first input field
   setTimeout(() => {
     inputRefs.value[0]?.focus()
   }, 100)
-
-  // Ensure a fresh verification code is on its way so the user can verify right away.
-  if (authStore.isAuthenticated && !authStore.user?.emailVerified && !userEmail.value) {
-    userEmail.value = authStore.user?.email || ''
-  }
-  if (authStore.isAuthenticated && !authStore.user?.emailVerified) {
-    try {
-      await authStore.sendVerificationOtp()
-    } catch (e: any) {
-      errorMessage.value = e?.message || 'We could not send a verification code. Please try resend.'
-    }
-  }
 })
 
-// Handle typing & auto-advancing focus
 const handleInput = (index: number, event: Event) => {
   const target = event.target as HTMLInputElement
   const value = target.value
 
-  // Keep only the last typed character
   otp[index] = value.substring(value.length - 1)
 
-  // Move to next input automatically if character entered
   if (value && index < 5) {
     inputRefs.value[index + 1]?.focus()
   }
 
-  // Auto submit when all 6 digits are filled
   if (otp.join('').length === 6) {
     verifyOtp()
   }
 }
 
-// Handle keydowns (Backspace & Paste)
 const handleKeyDown = (index: number, event: KeyboardEvent) => {
   if (event.key === 'Backspace' && !otp[index] && index > 0) {
     inputRefs.value[index - 1]?.focus()
@@ -116,7 +106,7 @@ const verifyOtp = async () => {
   successMessage.value = ''
 
   try {
-    await authStore.verifyEmail(code)
+    await authStore.verifyEmail(userEmail.value, code)
     successMessage.value = 'Email verified successfully! Redirecting...'
     setTimeout(() => {
       router.push('/dashboard')
@@ -132,11 +122,16 @@ const verifyOtp = async () => {
 const handleResend = async () => {
   if (!canResend.value) return
 
+  if (!userEmail.value) {
+    errorMessage.value = 'We need your email to send a new code.'
+    return
+  }
+
   errorMessage.value = ''
   successMessage.value = ''
 
   try {
-    await authStore.sendVerificationOtp()
+    await authStore.sendVerificationOtp(userEmail.value)
     successMessage.value = 'A new verification code has been sent to your email.'
     startResendTimer()
   } catch (err: any) {

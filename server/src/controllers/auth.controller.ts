@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express'
 import {
+  findAuthUserByEmail,
   findAuthUserById,
   forgotPassword,
   loginUser,
@@ -12,6 +13,7 @@ import {
 } from '../services/auth.service.ts'
 import { buildDashboard } from '../services/subscription.service.ts'
 import { clearAuthCookie, setAuthCookie } from '../middleware/cookieSession.ts'
+import { getRequestAuth } from '../middleware/auth.middleware.ts'
 import type { AuthenticatedRequest, LoginBody, RegisterBody } from '../types.ts'
 
 export async function registerController(req: Request & { body: RegisterBody }, res: Response) {
@@ -108,9 +110,13 @@ export async function resetPasswordController(req: Request, res: Response) {
 }
 
 export async function sendOtpController(req: AuthenticatedRequest, res: Response) {
-  const user = await findAuthUserById(req.auth!.sub)
-  if (!user) {
-    res.status(404).json({ message: 'User not found' })
+  const auth = getRequestAuth(req)
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim() : ''
+
+  const user = auth?.sub ? await findAuthUserById(auth.sub) : email ? await findAuthUserByEmail(email) : null
+
+  if (!user || user.emailVerified) {
+    res.json({ message: 'If an unverified account exists for that email, a code has been sent.' })
     return
   }
 
@@ -123,15 +129,16 @@ export async function sendOtpController(req: AuthenticatedRequest, res: Response
   res.json(result)
 }
 
-export async function verifyEmailController(req: AuthenticatedRequest, res: Response) {
+export async function verifyEmailController(req: Request, res: Response) {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim() : ''
   const code = typeof req.body?.code === 'string' ? req.body.code.trim() : ''
 
-  if (!code) {
-    res.status(400).json({ message: 'Verification code is required.' })
+  if (!email || !code) {
+    res.status(400).json({ message: 'Email and verification code are required.' })
     return
   }
 
-  const result = await verifyEmailOtp(req.auth!.sub, code)
+  const result = await verifyEmailOtp(email, code)
   if ('error' in result) {
     res.status(400).json({ message: result.error })
     return
