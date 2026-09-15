@@ -35,11 +35,21 @@ const accountForm = ref({ email: '', password: '', currentPassword: '' })
 const accountMessage = ref<{ type: 'success' | 'error'; text: string } | null>(null)
 
 const settings = computed(() => adminStore.paymentSettings)
-const apiBase = computed(() => (import.meta.env.VITE_API_BASE_URL as string | undefined) || window.location.origin)
-const webhooks = computed(() => ({
-    paystack: `${apiBase.value}/api/payments/webhook/paystack`,
-    flutterwave: `${apiBase.value}/api/payments/webhook/flutterwave`,
-}))
+// Prefer the URL the backend reports (derived from the request host), so this is
+// always the real API host even behind Netlify/Render/Cloudflare.
+const fallbackApiBase = computed(() =>
+    ((import.meta.env.VITE_API_BASE_URL as string | undefined) || 'https://optimedia-client.onrender.com').replace(/\/$/, ''),
+)
+const webhooks = computed(() => {
+    const fromServer = adminStore.webhookUrls
+    if (fromServer?.paystack) {
+        return { paystack: fromServer.paystack, flutterwave: fromServer.flutterwave }
+    }
+    return {
+        paystack: `${fallbackApiBase.value}/api/payments/webhook/paystack`,
+        flutterwave: `${fallbackApiBase.value}/api/payments/webhook/flutterwave`,
+    }
+})
 
 const providers: { id: PaymentProviderName; label: string; icon: string; blurb: string }[] = [
     { id: 'paystack', label: 'Paystack', icon: 'fa-solid fa-bolt', blurb: 'Cards, bank transfer & USSD (Nigeria)' },
@@ -50,6 +60,7 @@ onMounted(async () => {
     const [payment] = await Promise.all([
         adminStore.fetchPaymentSettings().catch(() => null),
         adminStore.fetchSiteSettings().catch(() => null),
+        adminStore.fetchWebhookUrls().catch(() => null),
     ])
 
     if (payment) {
@@ -347,7 +358,9 @@ async function handleLogout() {
                 <section class="bg-white/5 rounded-3xl border border-white/10 p-6 sm:p-8">
                     <h2 class="text-sm font-black uppercase tracking-widest text-white/60 mb-5">Webhook URLs</h2>
                     <p class="text-xs text-white/40 mb-4">
-                        Add these in each provider's dashboard so payments auto-confirm even if the customer closes the tab.
+                        Add these exact URLs in each provider's dashboard so payments auto-confirm even if the customer
+                        closes the tab. They point to the API (not the website) and are generated from the URL the API is
+                        reached on.
                     </p>
                     <div class="space-y-3">
                         <div class="flex items-center gap-3 bg-black/30 border border-white/10 rounded-xl px-4 py-3">
@@ -364,6 +377,15 @@ async function handleLogout() {
                                 <i class="fa-solid fa-copy"></i>
                             </button>
                         </div>
+                    </div>
+
+                    <div v-if="settings?.provider === 'flutterwave' && !settings?.flutterwave.secretHashSet"
+                        class="mt-4 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
+                        <i class="fa-solid fa-triangle-exclamation text-amber-400 mt-0.5"></i>
+                        <p class="text-xs font-semibold text-amber-200">
+                            Flutterwave webhooks will be rejected until you set the <strong>Webhook Secret Hash</strong>
+                            (above) to the same value configured in your Flutterwave dashboard.
+                        </p>
                     </div>
                 </section>
 

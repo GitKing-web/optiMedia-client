@@ -239,6 +239,8 @@ export const useAdminStore = defineStore('admin', () => {
 
     const recipients = ref<AdminUserRow[]>([])
 
+    const webhookUrls = ref<{ baseUrl: string; paystack: string; flutterwave: string } | null>(null)
+
     const usersPagination = ref<PaginationMeta>({ ...EMPTY_PAGINATION })
     const usersSearch = ref('')
     const logsPagination = ref<PaginationMeta>({ ...EMPTY_PAGINATION })
@@ -442,6 +444,19 @@ export const useAdminStore = defineStore('admin', () => {
             return response.settings
         } finally {
             isSettingsLoading.value = false
+        }
+    }
+
+    async function fetchWebhookUrls() {
+        if (!authStore.isAuthenticated) return null
+        try {
+            const response = await apiFetch<{ baseUrl: string; paystack: string; flutterwave: string }>(
+                '/api/admin/payment-webhooks',
+            )
+            webhookUrls.value = response
+            return response
+        } catch {
+            return null
         }
     }
 
@@ -693,6 +708,7 @@ export const useAdminStore = defineStore('admin', () => {
         isCouponsLoading,
         isSavingCoupon,
         recipients,
+        webhookUrls,
         usersPagination,
         usersSearch,
         logsPagination,
@@ -719,6 +735,7 @@ export const useAdminStore = defineStore('admin', () => {
         cleanupFamilySlots,
         fetchPaymentSettings,
         savePaymentSettings,
+        fetchWebhookUrls,
         fetchSiteSettings,
         saveSiteSettings,
         updateAccount,

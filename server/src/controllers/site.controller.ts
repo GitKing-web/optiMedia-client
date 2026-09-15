@@ -1,4 +1,4 @@
-import type { Response } from 'express'
+import type { Request, Response } from 'express'
 import * as bcrypt from 'bcrypt'
 import { prisma } from '../db/prisma.ts'
 import { findAuthUserById } from '../services/auth.service.ts'
@@ -8,6 +8,23 @@ import type { AuthenticatedRequest } from '../types.ts'
 
 export async function publicSiteController(_req: unknown, res: Response) {
   res.json(await getPublicSiteSettings())
+}
+
+/**
+ * Reports the absolute webhook URLs using the host this request reached the API
+ * on, so the dashboard always shows the correct (backend) URL behind proxies
+ * like Render/Cloudflare.
+ */
+export function paymentWebhooksController(req: Request, res: Response) {
+  const proto = (req.get('x-forwarded-proto') || req.protocol || 'https').split(',')[0].trim()
+  const host = (req.get('x-forwarded-host') || req.get('host') || '').split(',')[0].trim()
+  const baseUrl = host ? `${proto}://${host}` : ''
+
+  res.json({
+    baseUrl,
+    paystack: baseUrl ? `${baseUrl}/api/payments/webhook/paystack` : '',
+    flutterwave: baseUrl ? `${baseUrl}/api/payments/webhook/flutterwave` : '',
+  })
 }
 
 export async function adminSiteController(_req: AuthenticatedRequest, res: Response) {
