@@ -1,5 +1,5 @@
 import { prisma } from '../db/prisma.ts'
-import { decryptSecret, encryptSecret, maskSecret } from '../utils/crypto.ts'
+import { encryptSecret, maskSecret, tryDecryptSecret } from '../utils/crypto.ts'
 
 export type PaymentProviderName = 'paystack' | 'flutterwave'
 
@@ -35,13 +35,44 @@ const ENV_FALLBACK: Record<string, string> = {
   [KEYS.platformFee]: process.env.PLATFORM_FEE || '0',
 }
 
-async function readValue(key: string): Promise<string> {
-  const row = await prisma.platformSetting.findUnique({ where: { key } })
+export type SettingSource = 'database' | 'environment' | 'undecryptable' | 'none'
+
+/**
+ * Reads a setting, reporting where the effective value came from. This makes it
+ * obvious in the admin UI whether a saved key is actually persisted in the
+ * database, only supplied by the environment, or unusable (e.g. JWT_SECRET
+ * changed after it was encrypted).
+ */
+async function readValueWithSource(key: string): Promise<{ value: string; source: SettingSource }> {
+  let row: { value: string } | null = null
+  try {
+    row = await prisma.platformSetting.findUnique({ where: { key } })
+  } catch (error) {
+    console.error('[settings] failed to read setting from database:', key, error)
+    const envValue = ENV_FALLBACK[key] ?? ''
+    return { value: envValue, source: envValue ? 'environment' : 'none' }
+  }
+
   const stored = row?.value
   if (stored === undefined || stored === null || stored === '') {
-    return ENV_FALLBACK[key] ?? ''
+    const envValue = ENV_FALLBACK[key] ?? ''
+    return { value: envValue, source: envValue ? 'environment' : 'none' }
   }
-  return SECRET_KEYS.has(key) ? decryptSecret(stored) : stored
+
+  if (SECRET_KEYS.has(key)) {
+    const result = tryDecryptSecret(stored)
+    if (!result.ok) {
+      console.error(`[settings] stored secret for "${key}" could not be decrypted (JWT_SECRET changed?)`)
+      return { value: '', source: 'undecryptable' }
+    }
+    return { value: result.value, source: 'database' }
+  }
+
+  return { value: stored, source: 'database' }
+}
+
+async function readValue(key: string): Promise<string> {
+  return (await readValueWithSource(key)).value
 }
 
 export function isPaymentProvider(value: unknown): value is PaymentProviderName {
@@ -83,36 +114,54 @@ export async function getFlutterwaveCredentials(): Promise<FlutterwaveCredential
 
 export interface PaymentSettingsView {
   provider: PaymentProviderName
-  paystack: { publicKey: string; secretKeySet: boolean; secretKeyMasked: string }
+  providerSource: SettingSource
+  paystack: {
+    publicKey: string
+    secretKeySet: boolean
+    secretKeyMasked: string
+    secretKeySource: SettingSource
+  }
   flutterwave: {
     publicKey: string
     secretKeySet: boolean
     secretKeyMasked: string
+    secretKeySource: SettingSource
     secretHashSet: boolean
     secretHashMasked: string
+    secretHashSource: SettingSource
   }
 }
 
 export async function getPaymentSettingsView(): Promise<PaymentSettingsView> {
-  const [provider, paystack, flutterwave] = await Promise.all([
-    getActiveProviderName(),
-    getPaystackCredentials(),
-    getFlutterwaveCredentials(),
-  ])
+  const [provider, paystackPublicKey, paystackSecret, flutterwavePublicKey, flutterwaveSecret, flutterwaveHash] =
+    await Promise.all([
+      readValueWithSource(KEYS.provider),
+      readValueWithSource(KEYS.paystackPublicKey),
+      readValueWithSource(KEYS.paystackSecretKey),
+      readValueWithSource(KEYS.flutterwavePublicKey),
+      readValueWithSource(KEYS.flutterwaveSecretKey),
+      readValueWithSource(KEYS.flutterwaveSecretHash),
+    ])
+
+  const providerName = isPaymentProvider(provider.value) ? provider.value : 'paystack'
 
   return {
-    provider,
+    provider: providerName,
+    providerSource: provider.source,
     paystack: {
-      publicKey: paystack.publicKey,
-      secretKeySet: Boolean(paystack.secretKey),
-      secretKeyMasked: maskSecret(paystack.secretKey),
+      publicKey: paystackPublicKey.value,
+      secretKeySet: Boolean(paystackSecret.value),
+      secretKeyMasked: maskSecret(paystackSecret.value),
+      secretKeySource: paystackSecret.source,
     },
     flutterwave: {
-      publicKey: flutterwave.publicKey,
-      secretKeySet: Boolean(flutterwave.secretKey),
-      secretKeyMasked: maskSecret(flutterwave.secretKey),
-      secretHashSet: Boolean(flutterwave.secretHash),
-      secretHashMasked: maskSecret(flutterwave.secretHash),
+      publicKey: flutterwavePublicKey.value,
+      secretKeySet: Boolean(flutterwaveSecret.value),
+      secretKeyMasked: maskSecret(flutterwaveSecret.value),
+      secretKeySource: flutterwaveSecret.source,
+      secretHashSet: Boolean(flutterwaveHash.value),
+      secretHashMasked: maskSecret(flutterwaveHash.value),
+      secretHashSource: flutterwaveHash.source,
     },
   }
 }

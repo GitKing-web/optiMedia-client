@@ -17,7 +17,22 @@ export function encryptSecret(plain: string): string {
 }
 
 export function decryptSecret(stored: string): string {
-  if (!stored || !isEncrypted(stored)) return stored
+  return tryDecryptSecret(stored).value
+}
+
+export interface DecryptResult {
+  ok: boolean
+  value: string
+}
+
+/**
+ * Decrypts a stored secret and reports whether it succeeded. A failure usually
+ * means JWT_SECRET changed since the value was saved, which silently rendered
+ * the stored key unusable — callers should surface that instead of treating it
+ * as "not set".
+ */
+export function tryDecryptSecret(stored: string): DecryptResult {
+  if (!stored || !isEncrypted(stored)) return { ok: true, value: stored }
 
   try {
     const [, ivB64, tagB64, dataB64] = stored.split(':')
@@ -27,10 +42,14 @@ export function decryptSecret(stored: string): string {
       decipher.update(Buffer.from(dataB64, 'base64')),
       decipher.final(),
     ])
-    return decrypted.toString('utf8')
+    return { ok: true, value: decrypted.toString('utf8') }
   } catch {
-    return ''
+    return { ok: false, value: '' }
   }
+}
+
+export function isEncryptedSecret(value: string) {
+  return isEncrypted(value)
 }
 
 function isEncrypted(value: string) {

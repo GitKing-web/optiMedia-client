@@ -35,8 +35,6 @@ const accountForm = ref({ email: '', password: '', currentPassword: '' })
 const accountMessage = ref<{ type: 'success' | 'error'; text: string } | null>(null)
 
 const settings = computed(() => adminStore.paymentSettings)
-// Prefer the URL the backend reports (derived from the request host), so this is
-// always the real API host even behind Netlify/Render/Cloudflare.
 const fallbackApiBase = computed(() =>
     ((import.meta.env.VITE_API_BASE_URL as string | undefined) || 'https://optimedia-client.onrender.com').replace(/\/$/, ''),
 )
@@ -118,6 +116,34 @@ const activeProviderConfigured = computed(() => {
     if (!s) return true
     return s.provider === 'paystack' ? s.paystack.secretKeySet : s.flutterwave.secretKeySet
 })
+
+const undecryptableKeys = computed(() => {
+    const s = adminStore.paymentSettings
+    if (!s) return [] as string[]
+    const keys: string[] = []
+    if (s.paystack.secretKeySource === 'undecryptable') keys.push('Paystack secret key')
+    if (s.flutterwave.secretKeySource === 'undecryptable') keys.push('Flutterwave secret key')
+    if (s.flutterwave.secretHashSource === 'undecryptable') keys.push('Flutterwave webhook secret hash')
+    return keys
+})
+
+// Shows where a key actually lives, so a saved key that didn't persist (or that
+// can no longer be decrypted) is obvious instead of looking like "not set".
+function keyStatus(source?: string, isSet?: boolean) {
+    if (source === 'undecryptable') {
+        return { text: 'Unreadable — please re-save', class: 'bg-red-500/20 text-red-300' }
+    }
+    if (source === 'database') {
+        return { text: 'Saved in database', class: 'bg-emerald-500/15 text-emerald-300' }
+    }
+    if (source === 'environment') {
+        return { text: 'From environment (not saved here)', class: 'bg-sky-500/15 text-sky-300' }
+    }
+    if (isSet) {
+        return { text: 'Saved', class: 'bg-emerald-500/15 text-emerald-300' }
+    }
+    return { text: 'Not set', class: 'bg-red-500/15 text-red-300' }
+}
 
 async function saveSite() {
     siteMessage.value = null
@@ -262,6 +288,17 @@ async function handleLogout() {
 
             <!-- PAYMENT TAB -->
             <div v-else-if="activeTab === 'payment'" class="max-w-3xl space-y-8">
+                <div v-if="undecryptableKeys.length"
+                    class="flex items-start gap-3 rounded-2xl border border-red-500/40 bg-red-500/10 p-4">
+                    <i class="fa-solid fa-triangle-exclamation text-red-400 mt-0.5"></i>
+                    <div class="text-sm font-semibold text-red-200 space-y-1">
+                        <p>Some saved secrets can no longer be decrypted
+                            (likely because the server's JWT_SECRET changed). They are
+                            effectively unusable — re-enter them below and save.</p>
+                        <p class="text-xs font-normal text-red-300/80">{{ undecryptableKeys.join(', ') }}</p>
+                    </div>
+                </div>
+
                 <div v-if="!activeProviderConfigured"
                     class="flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
                     <i class="fa-solid fa-triangle-exclamation text-amber-400 mt-0.5"></i>
@@ -300,13 +337,13 @@ async function handleLogout() {
                                 class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm text-white placeholder-white/30 outline-none focus:border-primary/40" />
                         </div>
                         <div>
-                            <label class="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">
+                            <label class="flex items-center gap-2 flex-wrap text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">
                                 Secret Key
-                                <span v-if="settings?.paystack.secretKeySet"
-                                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300">
-                                    <i class="fa-solid fa-circle-check"></i> Saved · {{ settings.paystack.secretKeyMasked }}
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded"
+                                    :class="keyStatus(settings?.paystack.secretKeySource, settings?.paystack.secretKeySet).class">
+                                    {{ keyStatus(settings?.paystack.secretKeySource, settings?.paystack.secretKeySet).text }}
+                                    <template v-if="settings?.paystack.secretKeySet"> · {{ settings.paystack.secretKeyMasked }}</template>
                                 </span>
-                                <span v-else class="px-2 py-0.5 rounded bg-red-500/15 text-red-300">Not set</span>
                             </label>
                             <input v-model="paymentForm.paystackSecretKey" type="password" autocomplete="new-password"
                                 :placeholder="settings?.paystack.secretKeySet ? 'Leave blank to keep current key' : 'sk_live_...'"
@@ -327,26 +364,26 @@ async function handleLogout() {
                                 class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm text-white placeholder-white/30 outline-none focus:border-primary/40" />
                         </div>
                         <div>
-                            <label class="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">
+                            <label class="flex items-center gap-2 flex-wrap text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">
                                 Secret Key
-                                <span v-if="settings?.flutterwave.secretKeySet"
-                                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300">
-                                    <i class="fa-solid fa-circle-check"></i> Saved · {{ settings.flutterwave.secretKeyMasked }}
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded"
+                                    :class="keyStatus(settings?.flutterwave.secretKeySource, settings?.flutterwave.secretKeySet).class">
+                                    {{ keyStatus(settings?.flutterwave.secretKeySource, settings?.flutterwave.secretKeySet).text }}
+                                    <template v-if="settings?.flutterwave.secretKeySet"> · {{ settings.flutterwave.secretKeyMasked }}</template>
                                 </span>
-                                <span v-else class="px-2 py-0.5 rounded bg-red-500/15 text-red-300">Not set</span>
                             </label>
                             <input v-model="paymentForm.flutterwaveSecretKey" type="password" autocomplete="new-password"
                                 :placeholder="settings?.flutterwave.secretKeySet ? 'Leave blank to keep current key' : 'FLWSECK-...'"
                                 class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm text-white placeholder-white/30 outline-none focus:border-primary/40" />
                         </div>
                         <div>
-                            <label class="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">
+                            <label class="flex items-center gap-2 flex-wrap text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">
                                 Webhook Secret Hash
-                                <span v-if="settings?.flutterwave.secretHashSet"
-                                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300">
-                                    <i class="fa-solid fa-circle-check"></i> Saved · {{ settings.flutterwave.secretHashMasked }}
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded"
+                                    :class="keyStatus(settings?.flutterwave.secretHashSource, settings?.flutterwave.secretHashSet).class">
+                                    {{ keyStatus(settings?.flutterwave.secretHashSource, settings?.flutterwave.secretHashSet).text }}
+                                    <template v-if="settings?.flutterwave.secretHashSet"> · {{ settings.flutterwave.secretHashMasked }}</template>
                                 </span>
-                                <span v-else class="px-2 py-0.5 rounded bg-red-500/15 text-red-300">Not set</span>
                             </label>
                             <input v-model="paymentForm.flutterwaveSecretHash" type="password" autocomplete="new-password"
                                 :placeholder="settings?.flutterwave.secretHashSet ? 'Leave blank to keep current hash' : 'Your Flutterwave webhook hash'"

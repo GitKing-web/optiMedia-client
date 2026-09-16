@@ -124,19 +124,25 @@ export interface FamilyAccount {
 
 export type PaymentProviderName = 'paystack' | 'flutterwave'
 
+export type SettingSource = 'database' | 'environment' | 'undecryptable' | 'none'
+
 export interface PaymentSettings {
     provider: PaymentProviderName
+    providerSource?: SettingSource
     paystack: {
         publicKey: string
         secretKeySet: boolean
         secretKeyMasked: string
+        secretKeySource?: SettingSource
     }
     flutterwave: {
         publicKey: string
         secretKeySet: boolean
         secretKeyMasked: string
+        secretKeySource?: SettingSource
         secretHashSet: boolean
         secretHashMasked: string
+        secretHashSource?: SettingSource
     }
 }
 
