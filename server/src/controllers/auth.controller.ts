@@ -66,7 +66,18 @@ export async function meController(req: AuthenticatedRequest, res: Response) {
     return
   }
 
+  // Re-issue the token so the client can keep an in-memory copy for the
+  // Authorization header. Cross-site HttpOnly cookies are unreliable across
+  // browsers/devices, so explicit Bearer auth is what actually carries the
+  // session for every subsequent request (checkout, verify, etc.).
+  const token = jwt.sign(
+    { sub: user.id, role: user.role, email: user.email },
+    JWT_SECRET,
+    { expiresIn: '7d' },
+  )
+
   res.json({
+    token,
     user: publicUser(user),
     dashboard: await buildDashboard(user),
   })

@@ -81,8 +81,15 @@ export async function verifyEmailOtp(email: string, code: string) {
     },
   })
 
+  const token = jwt.sign(
+    { sub: user.id, role: user.role, email: user.email } satisfies JwtPayload,
+    JWT_SECRET,
+    { expiresIn: '7d' },
+  )
+
   return {
     message: 'Email verified successfully',
+    token,
     user: publicUser({ ...user, emailVerified: true } as AuthUser),
   }
 }

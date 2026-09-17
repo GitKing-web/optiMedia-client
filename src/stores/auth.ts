@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { apiFetch, ApiError } from '../lib/api'
+import { apiFetch, setAuthTokenProvider, ApiError } from '../lib/api'
 
 export interface UserProfile {
     id: string
@@ -19,6 +19,7 @@ interface AuthResponse {
 
 interface MeResponse {
     user: UserProfile
+    token?: string
     dashboard?: unknown
 }
 
@@ -30,6 +31,12 @@ export const useAuthStore = defineStore('auth', () => {
     const isLoggingOut = ref(false)
     const authError = ref<string | null>(null)
 
+    // The JWT lives in an HttpOnly cookie, but cross-site cookies are unreliable
+    // across browsers/devices (SameSite=None can be dropped). Keeping the token
+    // in memory lets apiFetch send it explicitly in the Authorization header so
+    // authenticated requests never silently become 401 "Unauthorized".
+    const authToken = ref<string | null>(null)
+
     let fetchingUser = false
     let currentUserPromise: Promise<UserProfile | null> | null = null
 
@@ -40,6 +47,14 @@ export const useAuthStore = defineStore('auth', () => {
         isAdmin.value = administrative || profile.role === 'admin'
     }
 
+    function setToken(token: string | null) {
+        authToken.value = token
+    }
+
+    // Register the in-memory token provider so apiFetch always has the current
+    // JWT, even across store re-instantiation.
+    setAuthTokenProvider(() => authToken.value)
+
     async function logout() {
         if (isLoggingOut.value) return
         isLoggingOut.value = true
@@ -49,6 +64,7 @@ export const useAuthStore = defineStore('auth', () => {
         } finally {
             user.value = null
             isAdmin.value = false
+            authToken.value = null
             isLoggingOut.value = false
         }
     }
@@ -64,6 +80,7 @@ export const useAuthStore = defineStore('auth', () => {
             })
 
             setUser(response.user, response.user.role === 'admin')
+            setToken(response.token)
             isHydrated.value = true
             return response
         } catch (error) {
@@ -89,6 +106,7 @@ export const useAuthStore = defineStore('auth', () => {
             })
 
             setUser(response.user, response.user.role === 'admin')
+            setToken(response.token)
             isHydrated.value = true
             return response
         } catch (error) {
@@ -111,11 +129,12 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     async function verifyEmail(email: string, code: string) {
-        const response = await apiFetch<{ message: string; user: UserProfile }>('/api/auth/verify-email', {
+        const response = await apiFetch<{ message: string; user: UserProfile; token?: string }>('/api/auth/verify-email', {
             method: 'POST',
             body: JSON.stringify({ email, code })
         })
 
+        if (response.token) setToken(response.token)
         if (user.value) {
             user.value = { ...user.value, emailVerified: true }
         }
@@ -132,10 +151,12 @@ export const useAuthStore = defineStore('auth', () => {
                 const response = await apiFetch<MeResponse>('/api/auth/me')
 
                 setUser(response.user, response.user.role === 'admin')
+                if (response.token) setToken(response.token)
                 return response.user
             } catch (error) {
                 user.value = null
                 isAdmin.value = false
+                authToken.value = null
                 throw error
             } finally {
                 isLoading.value = false
@@ -160,7 +181,9 @@ export const useAuthStore = defineStore('auth', () => {
         isLoggingOut,
         isHydrated,
         authError,
+        authToken,
         setUser,
+        setToken,
         login,
         register,
         sendVerificationOtp,
