@@ -1,11 +1,13 @@
 import type { Response } from 'express'
 import {
   assignFamilySlot,
+  bulkAssignFamilySlots,
   cleanupExpiredSlots,
   createFamilyAccount,
   deleteFamilyAccount,
   extendFamilySlot,
   listFamilyAccounts,
+  searchFamilyMembers,
   updateFamilyAccount,
   vacateFamilySlot,
 } from '../services/family.service.ts'
@@ -14,6 +16,23 @@ import type { AuthenticatedRequest } from '../types.ts'
 export async function listFamilyAccountsController(_req: AuthenticatedRequest, res: Response) {
   const accounts = await listFamilyAccounts()
   res.json({ accounts })
+}
+
+export async function searchFamilyMembersController(req: AuthenticatedRequest, res: Response) {
+  const search = String(req.query.search || '')
+  res.json({ members: await searchFamilyMembers(search) })
+}
+
+export async function bulkAssignFamilySlotsController(req: AuthenticatedRequest, res: Response) {
+  const accountId = String(req.params.id || '')
+  const members = Array.isArray(req.body?.members) ? req.body.members : []
+  const result = await bulkAssignFamilySlots(accountId, members)
+  if ('error' in result) {
+    res.status(400).json({ message: result.error })
+    return
+  }
+
+  res.json(result)
 }
 
 export async function createFamilyAccountController(req: AuthenticatedRequest, res: Response) {

@@ -21,6 +21,7 @@ interface FamilySlotInput {
   months?: number
   expireDate?: string | null
   notes?: string | null
+  slotId?: string
 }
 
 const MAX_CAPACITY = 50
@@ -122,10 +123,113 @@ function serializeAccount(account: {
 export async function listFamilyAccounts() {
   const accounts = await prisma.familyAccount.findMany({
     include: { slots: true },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { label: 'asc' },
   })
 
-  return accounts.map(serializeAccount)
+  // Case-insensitive alphabetical order, so "apple" and "Apple" sort together.
+  return accounts
+    .map(serializeAccount)
+    .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }))
+}
+
+/** Searches registered users so the admin can prefill a member slot. */
+export async function searchFamilyMembers(search?: string) {
+  const term = (search || '').trim()
+
+  const users = await prisma.user.findMany({
+    where: term
+      ? {
+          OR: [
+            { name: { contains: term, mode: 'insensitive' } },
+            { email: { contains: term, mode: 'insensitive' } },
+            { whatsapp: { contains: term, mode: 'insensitive' } },
+          ],
+        }
+      : undefined,
+    select: { id: true, name: true, email: true, whatsapp: true },
+    orderBy: { name: 'asc' },
+    take: 25,
+  })
+
+  return users.map((user) => ({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    whatsapp: user.whatsapp,
+  }))
+}
+
+/** Adds several members to an account's vacant slots in one action. */
+export async function bulkAssignFamilySlots(accountId: string, membersInput: FamilySlotInput[]) {
+  const account = await prisma.familyAccount.findUnique({
+    where: { id: accountId },
+    include: { slots: true },
+  })
+  if (!account) {
+    return { error: 'Family account not found' }
+  }
+
+  const members = (Array.isArray(membersInput) ? membersInput : []).filter((member) =>
+    (member?.memberName || '').trim(),
+  )
+  if (members.length === 0) {
+    return { error: 'At least one member name is required' }
+  }
+
+  const vacantSlots = account.slots
+    .filter((slot) => slot.status === 'vacant')
+    .sort((a, b) => a.slotNumber - b.slotNumber)
+
+  if (vacantSlots.length < members.length) {
+    return {
+      error: `Only ${vacantSlots.length} vacant slot(s) available for ${members.length} member(s)`,
+    }
+  }
+
+  const usedSlotIds = new Set<string>()
+  const now = new Date()
+
+  for (const member of members) {
+    const requested = member.slotId ? vacantSlots.find((slot) => slot.id === member.slotId) : undefined
+    const slot =
+      (requested && !usedSlotIds.has(requested.id) ? requested : undefined) ||
+      vacantSlots.find((candidate) => !usedSlotIds.has(candidate.id))
+
+    if (!slot) {
+      return { error: 'Not enough vacant slots' }
+    }
+    usedSlotIds.add(slot.id)
+
+    const months = Number(member.months)
+    const explicitExpiry = toDate(member.expireDate)
+    const expireDate =
+      explicitExpiry ||
+      (Number.isFinite(months) && months > 0 ? addDays(now, daysFromMonths(months)) : addDays(now, 30))
+
+    await prisma.familySlot.update({
+      where: { id: slot.id },
+      data: {
+        memberName: (member.memberName || '').trim(),
+        memberEmail: member.memberEmail?.trim() || null,
+        memberContact: member.memberContact?.trim() || null,
+        status: 'occupied',
+        startDate: now,
+        expireDate,
+        notes: member.notes || null,
+      },
+    })
+  }
+
+  const updated = await prisma.familyAccount.findUnique({
+    where: { id: accountId },
+    include: { slots: true },
+  })
+
+  return {
+    account: updated ? serializeAccount(updated) : null,
+    message: `${members.length} member(s) added`,
+    added: members.length,
+  }
 }
 
 export async function createFamilyAccount(input: FamilyAccountInput) {

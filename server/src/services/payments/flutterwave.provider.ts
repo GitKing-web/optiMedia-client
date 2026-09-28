@@ -102,7 +102,7 @@ export const flutterwaveProvider: PaymentProvider = {
     const { secretHash } = await getFlutterwaveCredentials()
     if (!secretHash) return { error: 'Flutterwave secret hash is not configured' }
 
-    const signature = headers['verif-hash'] || headers['verif_hash']
+    const signature = headers['verif-hash'] || headers['verif_hash'] || headers['verifhash']
     if (!signature || !safeEqual(signature, secretHash)) {
       return { error: 'Invalid webhook signature' }
     }
@@ -114,15 +114,23 @@ export const flutterwaveProvider: PaymentProvider = {
       return { error: 'Invalid JSON payload' }
     }
 
+    // Only completed charges create subscriptions. Other events (payouts,
+    // transfers, refunds, ...) can also carry status "successful" but have no
+    // tx_ref; ignore them instead of erroring, which would make Flutterwave
+    // retry the same webhook forever.
+    if (event.event && event.event !== 'charge.completed') {
+      return { ignored: true }
+    }
+
     if (!event.data) return { ignored: true }
+
+    const reference = event.data.tx_ref || String(event.data.meta?.reference || '')
+    if (!reference) return { ignored: true }
 
     const status = normalizeStatus(event.data.status)
     if (status !== 'success') {
       return { ignored: true }
     }
-
-    const reference = event.data.tx_ref || String(event.data.meta?.reference || '')
-    if (!reference) return { error: 'Webhook reference missing' }
 
     return {
       reference,

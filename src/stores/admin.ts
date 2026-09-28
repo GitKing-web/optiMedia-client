@@ -100,6 +100,27 @@ export interface FamilySlot {
     notes: string | null
 }
 
+export interface FamilyMember {
+    id: string
+    name: string
+    email: string
+    whatsapp: string
+}
+
+export interface BulkFamilyMemberInput {
+    memberName: string
+    memberEmail?: string
+    memberContact?: string
+    months?: number
+    notes?: string
+    slotId?: string
+}
+
+/** Alphabetical (case-insensitive) ordering used everywhere the accounts are shown. */
+export function sortFamilyAccounts(accounts: FamilyAccount[]): FamilyAccount[] {
+    return [...accounts].sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }))
+}
+
 export interface FamilyAccount {
     id: string
     label: string
@@ -603,14 +624,40 @@ export const useAdminStore = defineStore('admin', () => {
         isFamilyLoading.value = true
         try {
             const response = await apiFetch<{ accounts: FamilyAccount[] }>('/api/admin/family')
-            familyAccounts.value = response.accounts
-            return response.accounts
+            familyAccounts.value = sortFamilyAccounts(response.accounts)
+            return familyAccounts.value
         } catch {
             familyAccounts.value = []
             return []
         } finally {
             isFamilyLoading.value = false
         }
+    }
+
+    async function searchFamilyMembers(search = '') {
+        if (!authStore.isAuthenticated) return []
+        const params = new URLSearchParams()
+        if (search.trim()) params.set('search', search.trim())
+        const response = await apiFetch<{ members: FamilyMember[] }>(
+            `/api/admin/family/members?${params.toString()}`,
+        )
+        return response.members
+    }
+
+    async function bulkAssignFamilySlots(accountId: string, members: BulkFamilyMemberInput[]) {
+        if (!authStore.isAuthenticated) throw new Error('Unauthorized')
+        const response = await apiFetch<{ account: FamilyAccount | null; message: string; added: number }>(
+            `/api/admin/family/${accountId}/slots/bulk`,
+            { method: 'POST', body: JSON.stringify({ members }) },
+        )
+        if (response.account) {
+            const index = familyAccounts.value.findIndex((a) => a.id === response.account!.id)
+            if (index >= 0) familyAccounts.value[index] = response.account
+            familyAccounts.value = sortFamilyAccounts(familyAccounts.value)
+        } else {
+            await fetchFamilyAccounts()
+        }
+        return response
     }
 
     async function createFamilyAccount(payload: {
@@ -736,6 +783,8 @@ export const useAdminStore = defineStore('admin', () => {
         updateFamilyAccount,
         deleteFamilyAccount,
         assignFamilySlot,
+        searchFamilyMembers,
+        bulkAssignFamilySlots,
         extendFamilySlot,
         vacateFamilySlot,
         cleanupFamilySlots,

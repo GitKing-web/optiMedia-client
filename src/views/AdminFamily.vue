@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import Skeleton from '../components/Skeleton.vue'
-import { useAdminStore, type FamilyAccount, type FamilySlot } from '../stores/admin'
+import { useAdminStore, type FamilyAccount, type FamilyMember, type FamilySlot } from '../stores/admin'
 import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
@@ -13,9 +13,27 @@ const showAccountModal = ref(false)
 const showSlotModal = ref(false)
 const editMode = ref(false)
 const activeAccount = ref<FamilyAccount | null>(null)
-const activeSlot = ref<FamilySlot | null>(null)
+const targetSlot = ref<FamilySlot | null>(null)
 const busy = ref(false)
 const message = ref('')
+
+const pageSearch = ref('')
+
+const memberSearch = ref('')
+const memberResults = ref<FamilyMember[]>([])
+const isMemberSearching = ref(false)
+const defaultMonths = ref(1)
+
+interface QueuedMember {
+    key: string
+    memberName: string
+    memberEmail: string
+    memberContact: string
+    months: number
+    notes: string
+}
+
+const queuedMembers = ref<QueuedMember[]>([])
 
 const accountForm = ref({
     id: '',
@@ -29,14 +47,6 @@ const accountForm = ref({
     notes: '',
 })
 
-const slotForm = ref({
-    memberName: '',
-    memberEmail: '',
-    memberContact: '',
-    months: 1,
-    notes: '',
-})
-
 const totals = computed(() => {
     const accounts = adminStore.familyAccounts
     return {
@@ -47,9 +57,57 @@ const totals = computed(() => {
     }
 })
 
+// Accounts shown on the page: alphabetically ordered (A–Z, case-insensitive) and
+// filtered by the page search (label, service, master email or any member).
+const visibleAccounts = computed(() => {
+    const term = pageSearch.value.trim().toLowerCase()
+    const sorted = [...adminStore.familyAccounts].sort((a, b) =>
+        a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }),
+    )
+    if (!term) return sorted
+    return sorted.filter((account) => {
+        if (
+            account.label.toLowerCase().includes(term) ||
+            account.serviceName.toLowerCase().includes(term) ||
+            account.masterEmail.toLowerCase().includes(term)
+        ) {
+            return true
+        }
+        return account.slots.some(
+            (slot) =>
+                (slot.memberName || '').toLowerCase().includes(term) ||
+                (slot.memberEmail || '').toLowerCase().includes(term) ||
+                (slot.memberContact || '').toLowerCase().includes(term),
+        )
+    })
+})
+
+const vacantSlotCount = computed(
+    () => activeAccount.value?.slots.filter((slot) => slot.status === 'vacant').length ?? 0,
+)
+
 onMounted(() => {
     adminStore.fetchFamilyAccounts()
 })
+
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+watch(memberSearch, (value) => {
+    if (searchTimer) clearTimeout(searchTimer)
+    searchTimer = setTimeout(() => {
+        runMemberSearch(value)
+    }, 250)
+})
+
+async function runMemberSearch(value: string) {
+    isMemberSearching.value = true
+    try {
+        memberResults.value = await adminStore.searchFamilyMembers(value)
+    } catch {
+        memberResults.value = []
+    } finally {
+        isMemberSearching.value = false
+    }
+}
 
 function openCreate() {
     editMode.value = false
@@ -116,34 +174,91 @@ async function saveAccount() {
     }
 }
 
-function openAssign(account: FamilyAccount, slot: FamilySlot) {
+function openAddMembers(account: FamilyAccount, slot: FamilySlot | null = null) {
     activeAccount.value = account
-    activeSlot.value = slot
-    slotForm.value = { memberName: '', memberEmail: '', memberContact: '', months: 1, notes: '' }
+    targetSlot.value = slot
+    queuedMembers.value = []
+    memberSearch.value = ''
+    memberResults.value = []
+    defaultMonths.value = 1
     message.value = ''
     showSlotModal.value = true
+    runMemberSearch('')
 }
 
-async function saveSlot() {
-    if (!activeAccount.value || !activeSlot.value) return
-    if (!slotForm.value.memberName.trim()) {
-        message.value = 'Member name is required.'
+function openAssign(account: FamilyAccount, slot: FamilySlot) {
+    openAddMembers(account, slot)
+}
+
+function isAlreadyQueued(user: FamilyMember) {
+    const email = user.email.toLowerCase()
+    const name = user.name.toLowerCase()
+    return queuedMembers.value.some(
+        (member) => member.memberEmail.toLowerCase() === email || member.memberName.toLowerCase() === name,
+    )
+}
+
+function addMemberFromUser(user: FamilyMember) {
+    if (isAlreadyQueued(user)) return
+    queuedMembers.value.push({
+        key: `user-${user.id}`,
+        memberName: user.name,
+        memberEmail: user.email,
+        memberContact: user.whatsapp || '',
+        months: defaultMonths.value,
+        notes: '',
+    })
+    memberSearch.value = ''
+    memberResults.value = []
+}
+
+function addManualMember() {
+    queuedMembers.value.push({
+        key: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        memberName: '',
+        memberEmail: '',
+        memberContact: '',
+        months: defaultMonths.value,
+        notes: '',
+    })
+}
+
+function removeQueuedMember(key: string) {
+    queuedMembers.value = queuedMembers.value.filter((member) => member.key !== key)
+}
+
+function applyDefaultMonths() {
+    queuedMembers.value.forEach((member) => {
+        member.months = defaultMonths.value
+    })
+}
+
+async function saveMembers() {
+    if (!activeAccount.value) return
+
+    const members = queuedMembers.value
+        .map((member, index) => ({
+            memberName: member.memberName.trim(),
+            memberEmail: member.memberEmail.trim() || undefined,
+            memberContact: member.memberContact.trim() || undefined,
+            months: Number(member.months) || 1,
+            notes: member.notes.trim() || undefined,
+            slotId: index === 0 ? targetSlot.value?.id : undefined,
+        }))
+        .filter((member) => member.memberName)
+
+    if (members.length === 0) {
+        message.value = 'Add at least one member before saving.'
         return
     }
 
     busy.value = true
     message.value = ''
     try {
-        await adminStore.assignFamilySlot(activeAccount.value.id, activeSlot.value.id, {
-            memberName: slotForm.value.memberName.trim(),
-            memberEmail: slotForm.value.memberEmail.trim(),
-            memberContact: slotForm.value.memberContact.trim(),
-            months: Number(slotForm.value.months) || 1,
-            notes: slotForm.value.notes || undefined,
-        })
+        await adminStore.bulkAssignFamilySlots(activeAccount.value.id, members)
         showSlotModal.value = false
     } catch (e) {
-        message.value = e instanceof Error ? e.message : 'Unable to assign slot.'
+        message.value = e instanceof Error ? e.message : 'Unable to add members.'
     } finally {
         busy.value = false
     }
@@ -284,10 +399,22 @@ async function handleLogout() {
                         Track master accounts, slot capacity, members and expiry dates.
                     </p>
                 </div>
-                <button @click="openCreate"
-                    class="bg-primary text-white px-6 py-3 rounded-xl font-black uppercase text-xs tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-primary/30">
-                    <i class="fa-solid fa-plus mr-2"></i> New Master Account
-                </button>
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                    <div class="relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-white/30 text-sm"></i>
+                        <input v-model="pageSearch" placeholder="Search accounts or members..."
+                            class="w-full sm:w-72 bg-black/30 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-sm text-white placeholder-white/30 outline-none focus:border-primary/40" />
+                        <button v-if="pageSearch" @click="pageSearch = ''"
+                            class="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white"
+                            title="Clear search" aria-label="Clear search">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                    <button @click="openCreate"
+                        class="bg-primary text-white px-6 py-3 rounded-xl font-black uppercase text-xs tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-primary/30 whitespace-nowrap">
+                        <i class="fa-solid fa-plus mr-2"></i> New Master Account
+                    </button>
+                </div>
             </div>
 
             <div v-if="adminStore.isFamilyLoading && adminStore.familyAccounts.length === 0" class="space-y-6">
@@ -338,8 +465,15 @@ async function handleLogout() {
                     </button>
                 </div>
 
+                <div v-else-if="visibleAccounts.length === 0"
+                    class="bg-white/5 rounded-3xl border border-white/10 flex flex-col items-center justify-center py-16 text-center">
+                    <i class="fa-solid fa-magnifying-glass text-2xl text-white/20 mb-4"></i>
+                    <h3 class="text-lg font-black text-white mb-1">No matches</h3>
+                    <p class="text-white/40 text-sm">No account or member matches "{{ pageSearch }}".</p>
+                </div>
+
                 <div v-else class="space-y-6">
-                    <div v-for="account in adminStore.familyAccounts" :key="account.id"
+                    <div v-for="account in visibleAccounts" :key="account.id"
                         class="bg-white/5 backdrop-blur-md rounded-3xl border border-white/10 shadow-xl overflow-hidden">
                         <div class="p-5 sm:p-6 border-b border-white/5 flex flex-col lg:flex-row lg:items-center gap-4 justify-between">
                             <div class="min-w-0">
@@ -362,6 +496,10 @@ async function handleLogout() {
                                 </p>
                             </div>
                             <div class="flex items-center gap-2 shrink-0">
+                                <button @click="openAddMembers(account)"
+                                    class="px-3.5 py-2 rounded-lg bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 transition-all text-[10px] font-black uppercase tracking-widest">
+                                    <i class="fa-solid fa-user-plus mr-1"></i> Add members
+                                </button>
                                 <button @click="cleanup(account)"
                                     class="px-3.5 py-2 rounded-lg bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-all text-[10px] font-black uppercase tracking-widest">
                                     <i class="fa-solid fa-broom mr-1"></i> Clean expired
@@ -506,57 +644,113 @@ async function handleLogout() {
         </div>
     </Teleport>
 
-    <!-- Slot assign modal -->
+    <!-- Add members modal -->
     <Teleport to="body">
         <div v-if="showSlotModal" @click.self="showSlotModal = false"
             class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <div class="bg-secondary text-white border border-white/10 rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl p-6 sm:p-8">
-                <h2 class="text-xl font-black uppercase tracking-tight italic mb-1">Assign Slot</h2>
+            <div class="bg-secondary text-white border border-white/10 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl p-6 sm:p-8">
+                <div class="flex items-start justify-between gap-4 mb-1">
+                    <h2 class="text-xl font-black uppercase tracking-tight italic">Add Members</h2>
+                    <span class="text-[10px] font-black uppercase tracking-widest text-emerald-300 bg-emerald-500/10 px-2.5 py-1 rounded-lg shrink-0">
+                        {{ vacantSlotCount }} vacant
+                    </span>
+                </div>
                 <p class="text-white/40 text-xs mb-6">
-                    {{ activeAccount?.label }} · Slot {{ activeSlot?.slotNumber }}
+                    {{ activeAccount?.label }}
+                    <template v-if="targetSlot"> · starting at slot {{ targetSlot.slotNumber }}</template>
                 </p>
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Member Name</label>
-                        <input v-model="slotForm.memberName" placeholder="Full name"
-                            class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm text-white placeholder-white/30 outline-none focus:border-primary/40" />
+
+                <div class="space-y-3">
+                    <label class="block text-[10px] font-black uppercase tracking-widest text-white/40">Find a member</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-white/30 text-sm"></i>
+                        <input v-model="memberSearch" placeholder="Search by name, email or WhatsApp..."
+                            class="w-full bg-black/30 border border-white/10 rounded-xl py-3 pl-10 pr-10 text-sm text-white placeholder-white/30 outline-none focus:border-primary/40" />
+                        <i v-if="isMemberSearching"
+                            class="fa-solid fa-spinner fa-spin absolute right-4 top-1/2 -translate-y-1/2 text-white/30"></i>
                     </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Member Email</label>
-                            <input v-model="slotForm.memberEmail" type="email" placeholder="member@example.com"
-                                class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm text-white placeholder-white/30 outline-none focus:border-primary/40" />
-                        </div>
-                        <div>
-                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">WhatsApp</label>
-                            <input v-model="slotForm.memberContact" placeholder="+234..."
-                                class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm text-white placeholder-white/30 outline-none focus:border-primary/40" />
-                        </div>
+
+                    <div v-if="memberResults.length"
+                        class="max-h-44 overflow-y-auto rounded-xl border border-white/10 divide-y divide-white/5">
+                        <button v-for="user in memberResults" :key="user.id" type="button" @click="addMemberFromUser(user)"
+                            :disabled="isAlreadyQueued(user)"
+                            class="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/5 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                            <span class="h-9 w-9 rounded-full bg-primary/20 text-primary flex items-center justify-center font-black text-xs shrink-0">
+                                {{ (user.name || '?').charAt(0).toUpperCase() }}
+                            </span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block text-sm font-bold text-white truncate">{{ user.name }}</span>
+                                <span class="block text-xs text-white/40 truncate">
+                                    {{ user.email }}<template v-if="user.whatsapp"> · {{ user.whatsapp }}</template>
+                                </span>
+                            </span>
+                            <i :class="isAlreadyQueued(user) ? 'fa-solid fa-check text-emerald-400' : 'fa-solid fa-plus text-white/40'"></i>
+                        </button>
                     </div>
+                    <p v-else-if="memberSearch.trim() && !isMemberSearching" class="text-xs text-white/30 px-1">
+                        No registered user found. Use "Add manually" below.
+                    </p>
+                </div>
+
+                <div class="flex flex-wrap items-end gap-3 mt-5">
                     <div>
-                        <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Duration (months)</label>
-                        <select v-model="slotForm.months"
-                            class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm text-white placeholder-white/30 outline-none focus:border-primary/40">
+                        <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Default duration</label>
+                        <select v-model.number="defaultMonths" @change="applyDefaultMonths"
+                            class="bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm text-white outline-none focus:border-primary/40">
                             <option :value="1">1 month</option>
                             <option :value="2">2 months</option>
                             <option :value="3">3 months</option>
+                            <option :value="6">6 months</option>
+                            <option :value="12">12 months</option>
                         </select>
                     </div>
-                    <div>
-                        <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Notes</label>
-                        <input v-model="slotForm.notes" placeholder="Optional"
-                            class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm text-white placeholder-white/30 outline-none focus:border-primary/40" />
-                    </div>
-                    <p v-if="message" class="text-xs font-bold text-red-400">{{ message }}</p>
+                    <button @click="addManualMember" type="button"
+                        class="bg-white/5 text-white/70 px-4 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-white/10 transition-all">
+                        <i class="fa-solid fa-keyboard mr-1"></i> Add manually
+                    </button>
                 </div>
+
+                <div v-if="queuedMembers.length" class="mt-5 space-y-3">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-white/40">
+                        To add ({{ queuedMembers.length }})
+                    </p>
+                    <div v-for="member in queuedMembers" :key="member.key"
+                        class="rounded-2xl border border-white/10 bg-black/20 p-3 grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                        <input v-model="member.memberName" placeholder="Full name"
+                            class="sm:col-span-4 bg-black/30 border border-white/10 rounded-lg py-2 px-3 text-sm text-white placeholder-white/30 outline-none focus:border-primary/40" />
+                        <input v-model="member.memberEmail" placeholder="Email"
+                            class="sm:col-span-4 bg-black/30 border border-white/10 rounded-lg py-2 px-3 text-sm text-white placeholder-white/30 outline-none focus:border-primary/40" />
+                        <input v-model="member.memberContact" placeholder="WhatsApp"
+                            class="sm:col-span-2 bg-black/30 border border-white/10 rounded-lg py-2 px-3 text-sm text-white placeholder-white/30 outline-none focus:border-primary/40" />
+                        <select v-model.number="member.months"
+                            class="sm:col-span-1 bg-black/30 border border-white/10 rounded-lg py-2 px-2 text-sm text-white outline-none focus:border-primary/40">
+                            <option :value="1">1</option>
+                            <option :value="2">2</option>
+                            <option :value="3">3</option>
+                            <option :value="6">6</option>
+                            <option :value="12">12</option>
+                        </select>
+                        <button @click="removeQueuedMember(member.key)" type="button"
+                            class="sm:col-span-1 text-white/40 hover:text-red-400 justify-self-end sm:justify-self-center"
+                            title="Remove" aria-label="Remove">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                <p v-else class="mt-5 text-xs text-white/30">
+                    Search above and select members, or add them manually.
+                </p>
+
+                <p v-if="message" class="text-xs font-bold text-red-400 mt-4">{{ message }}</p>
+
                 <div class="flex gap-3 mt-6">
                     <button @click="showSlotModal = false"
                         class="flex-1 bg-white/5 text-white/60 py-3 rounded-xl font-black uppercase text-xs tracking-widest hover:bg-white/10 transition-all">
                         Cancel
                     </button>
-                    <button @click="saveSlot" :disabled="busy"
-                        class="flex-1 bg-primary text-white py-3 rounded-xl font-black uppercase text-xs tracking-widest hover:brightness-110 transition-all disabled:opacity-60">
-                        {{ busy ? 'Assigning...' : 'Assign' }}
+                    <button @click="saveMembers" :disabled="busy || queuedMembers.length === 0"
+                        class="flex-1 bg-primary text-white py-3 rounded-xl font-black uppercase text-xs tracking-widest hover:brightness-110 transition-all disabled:opacity-60 disabled:cursor-not-allowed">
+                        {{ busy ? 'Adding...' : `Add ${queuedMembers.length || ''} member${queuedMembers.length === 1 ? '' : 's'}` }}
                     </button>
                 </div>
             </div>
