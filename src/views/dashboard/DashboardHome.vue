@@ -129,6 +129,7 @@ onMounted(async () => {
                         :icon="sub.icon"
                         :activeDate="sub.activeDate"
                         :durationDays="sub.durationDays"
+                        :nextBilling="sub.nextBilling"
                         :isActive="selectedSubscription?.id === sub.id"
                         @select="router.push('/subscriptions')"
                     />

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 
 const props = defineProps<{
     name: string
@@ -8,6 +8,7 @@ const props = defineProps<{
     icon: string
     activeDate?: string // ISO string when it became active
     durationDays?: number
+    nextBilling?: string
     isActive: boolean
 }>()
 
@@ -15,13 +16,14 @@ const countdown = ref('')
 let timer: any = null
 
 function updateCountdown() {
-    if (props.status !== 'active' || !props.activeDate || !props.durationDays) {
+    if (props.status !== 'active' || (!props.nextBilling && (!props.activeDate || !props.durationDays))) {
         countdown.value = props.status === 'pending' ? 'Activating account...' : 'Expired'
         return
     }
 
-    const start = new Date(props.activeDate)
-    const end = new Date(start.getTime() + props.durationDays * 24 * 60 * 60 * 1000)
+    const end = props.nextBilling
+        ? new Date(props.nextBilling)
+        : new Date(new Date(props.activeDate!).getTime() + props.durationDays! * 24 * 60 * 60 * 1000)
     const now = new Date()
     const diff = end.getTime() - now.getTime()
 
@@ -40,6 +42,8 @@ function updateCountdown() {
         countdown.value = `Expires in ${hours}h ${minutes}m`
     }
 }
+
+watch(() => [props.status, props.nextBilling, props.activeDate, props.durationDays], updateCountdown)
 
 onMounted(() => {
     updateCountdown()

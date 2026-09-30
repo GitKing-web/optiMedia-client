@@ -114,11 +114,7 @@ export const flutterwaveProvider: PaymentProvider = {
       return { error: 'Invalid JSON payload' }
     }
 
-    // Only completed charges create subscriptions. Other events (payouts,
-    // transfers, refunds, ...) can also carry status "successful" but have no
-    // tx_ref; ignore them instead of erroring, which would make Flutterwave
-    // retry the same webhook forever.
-    if (event.event && event.event !== 'charge.completed') {
+   if (event.event && event.event !== 'charge.completed') {
       return { ignored: true }
     }
 

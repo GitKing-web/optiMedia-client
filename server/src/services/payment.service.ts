@@ -4,7 +4,7 @@ import { prisma } from '../db/prisma.ts'
 import { findAuthUserById } from './auth.service.ts'
 import { createId, money } from '../utils.ts'
 import type { AuthUser, Service } from '../types.ts'
-import { createPendingSubscription, grantPaidMonths, normalizeMonths, updateSubscriptionStatus } from './subscription.service.ts'
+import { normalizeMonths } from './subscription.service.ts'
 import { sendSubscriptionWelcomeEmail } from './reminder.service.ts'
 import { getActiveProvider, getProvider } from './payments/registry.ts'
 import type { PaymentProvider, VerifyResult } from './payments/types.ts'
@@ -24,154 +24,85 @@ interface FinalizeTransaction {
 }
 
 async function finalizeSuccessfulPayment(paymentReference: string, transaction: FinalizeTransaction, user: AuthUser) {
-  const payment = await prisma.payment.findUnique({
-    where: { reference: paymentReference },
-  })
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        const payment = await tx.payment.findUnique({ where: { reference: paymentReference } })
+        if (!payment) return { error: 'Payment reference not found' }
+        if (payment.userId !== user.id) return { error: 'This payment does not belong to the current user' }
 
-  if (!payment) {
-    return { error: 'Payment reference not found' }
-  }
+        if (payment.status === 'success') {
+          if (!payment.subscriptionId) {
+            return { error: 'Payment was received but subscription fulfillment is incomplete. Please contact support with your payment reference.' }
+          }
+          const subscription = await tx.subscription.findUnique({
+            where: { id: payment.subscriptionId }, include: { service: true },
+          })
+          return { message: 'Payment was already verified', payment, subscription, ignored: true }
+        }
 
-  if (payment.status === 'success') {
-    const existingSubscription = await prisma.subscription.findFirst({
-      where: {
-        userId: user.id,
-        serviceId: payment.serviceId,
-        status: { not: 'expired' },
-      },
-      include: { service: true },
-    })
+        if (!Number.isFinite(transaction.amount) || transaction.amount + 0.5 < payment.amount) {
+          return { error: `Payment amount mismatch (expected ${payment.amount}, received ${transaction.amount})` }
+        }
+        const service = await tx.service.findUnique({ where: { id: payment.serviceId } })
+        if (!service) return { error: 'Service not found for this payment' }
 
-    return {
-      message: 'Payment was already verified',
-      payment,
-      subscription: existingSubscription,
-      ignored: true,
-    }
-  }
+        const existing = await tx.subscription.findUnique({
+          where: { userId_serviceId: { userId: user.id, serviceId: service.id } },
+        })
+        const months = normalizeMonths(payment.months)
+        const now = new Date()
+        const extending = existing?.status === 'active' && existing.nextBilling && existing.nextBilling > now
+        const base = extending ? existing.nextBilling! : now
+        const data = {
+          status: 'active' as const,
+          price: service.price,
+          months: extending ? existing.months + months : months,
+          durationDays: extending ? (existing.durationDays || 0) + months * 30 : months * 30,
+          activeDate: extending ? existing.activeDate || now : now,
+          nextBilling: new Date(base.getTime() + months * 30 * 24 * 60 * 60 * 1000),
+          reminder3dSentAt: null,
+          expiryNoticeSentAt: null,
+          welcomeEmailSentAt: null,
+        }
+        const subscription = existing
+          ? await tx.subscription.update({ where: { id: existing.id }, data, include: { service: true } })
+          : await tx.subscription.create({
+              data: { ...data, id: createId('sub'), userId: user.id, serviceId: service.id, icon: service.icon, bg: service.bg },
+              include: { service: true },
+            })
 
-  // Never grant access on a shortfall. Providers report the amount they were
-  // told was paid; a mismatch usually means tampering or a partial payment.
-  if (transaction.amount > 0 && transaction.amount + 0.5 < payment.amount) {
-    return {
-      error: `Payment amount mismatch (expected ${payment.amount}, received ${transaction.amount})`,
-    }
-  }
+        await tx.activity.create({
+          data: {
+            id: createId('act'), userId: user.id, type: 'payment',
+            service: `${service.name} Payment${months > 1 ? ` (${months} months)` : ''}`,
+            amount: money(payment.amount), status: 'Completed', date: 'Just now', icon: service.icon,
+          },
+        })
+        if (payment.couponCode) {
+          await recordCouponRedemption(payment.couponCode, user.id, paymentReference, tx)
+        }
+        const updatedPayment = await tx.payment.update({
+          where: { reference: paymentReference },
+          data: {
+            status: 'success', subscriptionId: subscription.id,
+            paidAt: transaction.paidAt ? new Date(transaction.paidAt) : now,
+            paystackResponse: transaction.raw as Prisma.InputJsonValue,
+          },
+        })
+        return { message: 'Payment verified successfully', payment: updatedPayment, subscription }
+      }, { isolationLevel: 'Serializable' })
 
-  const service = await prisma.service.findUnique({
-    where: { id: payment.serviceId },
-  })
-
-  if (!service) {
-    return { error: 'Service not found for this payment' }
-  }
-
-  // Claim the payment atomically before granting anything. A webhook retry and
-  // a simultaneous browser verification can otherwise both pass the status
-  // check above and grant the same months twice.
-  const claim = await prisma.payment.updateMany({
-    where: { reference: paymentReference, status: { not: 'success' } },
-    data: {
-      status: 'success',
-      paidAt: transaction.paidAt ? new Date(transaction.paidAt) : new Date(),
-      paystackResponse: transaction.raw as Prisma.InputJsonValue,
-    },
-  })
-
-  if (claim.count === 0) {
-    const settled = await prisma.payment.findUnique({ where: { reference: paymentReference } })
-    const existingSubscription = await prisma.subscription.findFirst({
-      where: {
-        userId: user.id,
-        serviceId: payment.serviceId,
-        status: { not: 'expired' },
-      },
-      include: { service: true },
-    })
-
-    return {
-      message: 'Payment was already verified',
-      payment: settled ?? payment,
-      subscription: existingSubscription,
-      ignored: true,
-    }
-  }
-
-  const months = normalizeMonths(payment.months ?? 1)
-  const totalAmount = service.price * months
-
-  let subscription = await prisma.subscription.findFirst({
-    where: {
-      userId: user.id,
-      serviceId: service.id,
-      status: { not: 'expired' },
-    },
-    include: { service: true },
-  })
-
-  if (!subscription) {
-    const created = await createPendingSubscription(user, service, months)
-    if ('error' in created) {
-      // A concurrent request may have created it between our read and write;
-      // fall back to whatever exists now instead of failing the payment.
-      subscription = await prisma.subscription.findFirst({
-        where: { userId: user.id, serviceId: service.id, status: { not: 'expired' } },
-        include: { service: true },
-      })
-      if (!subscription) {
-        return created
+      if ('subscription' in result && result.subscription && !('ignored' in result)) {
+        await sendSubscriptionWelcomeEmail(result.subscription.id).catch((error) => {
+          console.error('Welcome email failed:', error)
+        })
       }
-    } else {
-      subscription = created.subscription as NonNullable<typeof subscription>
+      return result
+    } catch (error) {
+      if (attempt < 3 && (error as { code?: string }).code === 'P2034') continue
+      throw error
     }
-  } else {
-    const granted = await grantPaidMonths(subscription.id, months)
-    if ('subscription' in granted) {
-      subscription = granted.subscription as NonNullable<typeof subscription>
-    }
-  }
-
-  // A paid subscription becomes active right away. Active renewals keep their
-  // existing expiry, which grantPaidMonths already extended.
-  if (subscription.status !== 'active') {
-    const activated = await updateSubscriptionStatus(subscription.id, 'active')
-    if ('subscription' in activated) {
-      subscription = activated.subscription as NonNullable<typeof subscription>
-    }
-  }
-
-  await prisma.activity.create({
-    data: {
-      id: createId('act'),
-      userId: user.id,
-      type: 'payment',
-      service: `${service.name} Payment${months > 1 ? ` (${months} months)` : ''}`,
-      amount: money(totalAmount),
-      status: 'Completed',
-      date: 'Just now',
-      icon: service.icon,
-    },
-  })
-
-  const updatedPayment = await prisma.payment.update({
-    where: { reference: paymentReference },
-    data: {
-      subscriptionId: subscription.id,
-    },
-  })
-
-  if (payment.couponCode) {
-    await recordCouponRedemption(payment.couponCode, user.id, paymentReference)
-  }
-
-  await sendSubscriptionWelcomeEmail(subscription.id).catch((error) => {
-    console.error('Welcome email failed:', error)
-  })
-
-  return {
-    message: 'Payment verified successfully',
-    payment: updatedPayment,
-    subscription,
   }
 }
 
@@ -267,33 +198,17 @@ export async function verifyCheckout(user: AuthUser, reference: string) {
   }
 
   if (payment.status === 'success') {
-    const subscription = await prisma.subscription.findFirst({
-      where: {
-        userId: user.id,
-        serviceId: payment.serviceId,
-        status: { not: 'expired' },
-      },
-      include: { service: true },
-    })
-
-    return {
-      payment,
-      subscription,
-      message: 'Payment was already verified',
-    }
+    return finalizeSuccessfulPayment(reference, { amount: payment.amount, raw: payment.paystackResponse }, user)
   }
 
   const provider = getProvider(payment.gateway)
   const verification: VerifyResult = await provider.verify(reference)
 
   if (verification.status !== 'success') {
-    // Only a definitive failure should close the payment. A "pending" result
-    // (e.g. the provider hasn't settled yet) must stay open so the webhook can
-    // still confirm it when it arrives.
     const isDefinitiveFailure = verification.status === 'failed' || verification.status === 'abandoned'
 
-    await prisma.payment.update({
-      where: { reference },
+    await prisma.payment.updateMany({
+      where: { reference, status: { not: 'success' } },
       data: {
         ...(isDefinitiveFailure ? { status: 'failed' } : {}),
         paystackResponse: verification.raw as Prisma.InputJsonValue,

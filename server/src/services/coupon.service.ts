@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client'
 import { prisma } from '../db/prisma.ts'
 import { createId } from '../utils.ts'
 
@@ -215,20 +216,19 @@ export async function getWelcomeCoupon() {
   return serialize(coupon as CouponRecord)
 }
 
-export async function recordCouponRedemption(code: string, userId: string, reference?: string) {
+export async function recordCouponRedemption(code: string, userId: string, reference?: string, db: Prisma.TransactionClient = prisma) {
   const normalized = normalizeCode(code)
-  const coupon = await prisma.coupon.findUnique({ where: { code: normalized } })
+  const coupon = await db.coupon.findUnique({ where: { code: normalized } })
   if (!coupon) return
 
-  await prisma.couponRedemption
+  await db.couponRedemption
     .upsert({
       where: { couponId_userId: { couponId: coupon.id, userId } },
       create: { couponId: coupon.id, userId, reference: reference || null },
       update: { reference: reference || undefined },
     })
-    .catch(() => null)
 
-  await prisma.coupon.update({
+  await db.coupon.update({
     where: { id: coupon.id },
     data: { usedCount: { increment: 1 } },
   })
