@@ -20,6 +20,34 @@ const appliedCoupon = ref<{ code: string; discount: number } | null>(null)
 const couponMessage = ref<{ type: 'success' | 'error'; text: string } | null>(null)
 const isApplyingCoupon = ref(false)
 
+const showPaymentSuccess = ref(false)
+const paidServiceName = ref('')
+const paidReference = ref('')
+const copiedReference = ref(false)
+
+const whatsappLink = computed(() => {
+    const number = siteStore.supportWhatsapp.replace(/\D/g, '')
+    if (!number) return ''
+    const message = `Hello OptiMedia, I just paid for ${paidServiceName.value}. My payment reference is ${paidReference.value}. Please send me my subscription link.`
+    return `https://wa.me/${number}?text=${encodeURIComponent(message)}`
+})
+
+async function copyReference() {
+    if (!paidReference.value) return
+    try {
+        await navigator.clipboard.writeText(paidReference.value)
+        copiedReference.value = true
+        window.setTimeout(() => { copiedReference.value = false }, 2000)
+    } catch {
+        copiedReference.value = false
+    }
+}
+
+function goToDashboard() {
+    showPaymentSuccess.value = false
+    router.replace('/dashboard')
+}
+
 const serviceNameParam = computed(() => String(route.params.name || '').toLowerCase())
 
 const matchedService = computed(() => {
@@ -73,6 +101,10 @@ onMounted(async () => {
         await subStore.fetchServices().catch(() => null)
     }
 
+    if (!siteStore.loaded || !siteStore.supportWhatsapp) {
+        await siteStore.fetchSite().catch(() => null)
+    }
+
     const rawReference = route.query.reference || route.query.tx_ref || route.query.trxref || ''
     const firstValue = Array.isArray(rawReference) ? rawReference[0] : rawReference
     const reference = String(firstValue ?? '').split(',')[0].trim()
@@ -93,10 +125,17 @@ onMounted(async () => {
     try {
         isRedirecting.value = true
         statusMessage.value = 'Verifying your payment...'
-        await subStore.verifyCheckout(reference)
+        const result = await subStore.verifyCheckout(reference)
         sessionStorage.removeItem('pendingPaystackReference')
-        statusMessage.value = 'Payment verified. Taking you to your dashboard...'
-        router.replace('/dashboard')
+        sessionStorage.removeItem('pendingPaystackReturn')
+
+        paidServiceName.value = result.subscription?.service?.name || matchedService.value?.name || 'my subscription'
+        paidReference.value = reference
+        showPaymentSuccess.value = true
+        statusMessage.value = 'Payment verified successfully.'
+
+        // Drop the reference from the URL so refreshing does not verify it again.
+        router.replace({ path: route.path })
     } catch (error) {
         const message = error instanceof Error ? error.message : ''
         statusMessage.value = message
@@ -309,4 +348,114 @@ async function handleSubscribe() {
             Back to Catalog
         </button>
     </div>
+
+    <Teleport to="body">
+        <Transition name="modal">
+            <div
+                v-if="showPaymentSuccess"
+                class="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/80 p-4 sm:p-6 backdrop-blur-md"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="payment-success-title"
+            >
+                <div
+                    class="relative my-auto w-full max-w-lg overflow-hidden rounded-[2rem] border border-white/10 bg-secondary p-6 text-center shadow-2xl sm:rounded-[2.5rem] sm:p-10"
+                >
+                    <div class="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-emerald-500/10 blur-3xl"></div>
+
+                    <button
+                        @click="goToDashboard"
+                        aria-label="Close"
+                        class="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-white/40 transition-all hover:bg-white/10 hover:text-white"
+                    >
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+
+                    <div class="relative">
+                        <div
+                            class="mx-auto flex h-20 w-20 items-center justify-center rounded-[1.5rem] border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 shadow-lg shadow-emerald-500/10"
+                        >
+                            <i class="fa-solid fa-circle-check text-4xl"></i>
+                        </div>
+
+                        <p class="mt-6 text-[10px] font-black uppercase tracking-[0.3em] text-emerald-400">
+                            Payment Successful
+                        </p>
+                        <h2
+                            id="payment-success-title"
+                            class="mt-2 text-2xl font-black uppercase italic tracking-tight text-white sm:text-3xl"
+                        >
+                            You're almost in!
+                        </h2>
+                        <p class="mx-auto mt-4 max-w-sm text-sm font-semibold leading-relaxed text-white/60">
+                            We received your payment for
+                            <span class="font-black text-white">{{ paidServiceName }}</span>.
+                            Message the admin on WhatsApp and we'll send your subscription link.
+                        </p>
+
+                        <div class="mt-6 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-left">
+                            <p class="text-[9px] font-black uppercase tracking-widest text-white/30">Payment reference</p>
+                            <div class="mt-1 flex items-center justify-between gap-3">
+                                <code class="truncate text-xs font-bold text-white/80">{{ paidReference }}</code>
+                                <button
+                                    type="button"
+                                    @click="copyReference"
+                                    class="shrink-0 text-xs font-black uppercase tracking-widest transition-colors"
+                                    :class="copiedReference ? 'text-emerald-400' : 'text-white/40 hover:text-white'"
+                                >
+                                    <i :class="copiedReference ? 'fa-solid fa-check' : 'fa-regular fa-copy'"></i>
+                                    {{ copiedReference ? 'Copied' : 'Copy' }}
+                                </button>
+                            </div>
+                        </div>
+
+                        <a
+                            v-if="whatsappLink"
+                            :href="whatsappLink"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="mt-6 flex w-full items-center justify-center gap-3 rounded-xl bg-emerald-500 px-6 py-4 text-sm font-black uppercase tracking-widest text-white shadow-xl shadow-emerald-500/20 transition-all hover:brightness-110 active:scale-[0.98]"
+                        >
+                            <i class="fa-brands fa-whatsapp text-xl"></i>
+                            Message Admin on WhatsApp
+                        </a>
+                        <p v-else class="mt-6 text-xs font-semibold text-white/40">
+                            Please contact support to receive your subscription link.
+                        </p>
+
+                        <button
+                            type="button"
+                            @click="goToDashboard"
+                            class="mt-3 w-full rounded-xl border border-white/10 bg-white/5 px-6 py-4 text-xs font-black uppercase tracking-widest text-white/70 transition-all hover:bg-white/10 hover:text-white active:scale-[0.98]"
+                        >
+                            Go to Dashboard
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </Transition>
+    </Teleport>
 </template>
+
+<style scoped>
+.modal-enter-active,
+.modal-leave-active {
+    transition: opacity 0.25s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+    opacity: 0;
+}
+
+.modal-enter-active > div,
+.modal-leave-active > div {
+    transition: transform 0.25s ease, opacity 0.25s ease;
+}
+
+.modal-enter-from > div,
+.modal-leave-to > div {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+}
+</style>

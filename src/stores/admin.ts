@@ -189,6 +189,7 @@ export interface SiteSettings {
     siteName: string
     siteBanner: string
     platformFee: number
+    supportWhatsapp: string
 }
 
 export interface Coupon {
@@ -514,7 +515,7 @@ export const useAdminStore = defineStore('admin', () => {
         }
     }
 
-    async function saveSiteSettings(payload: { siteName?: string; siteBanner?: string; platformFee?: number }) {
+    async function saveSiteSettings(payload: { siteName?: string; siteBanner?: string; platformFee?: number; supportWhatsapp?: string }) {
         if (!authStore.isAuthenticated) throw new Error('Unauthorized')
         isSavingSite.value = true
         try {

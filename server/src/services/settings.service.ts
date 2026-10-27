@@ -15,6 +15,7 @@ const KEYS = {
   siteName: 'site_name',
   siteBanner: 'site_banner',
   platformFee: 'platform_fee',
+  supportWhatsapp: 'support_whatsapp',
 } as const
 
 const SECRET_KEYS = new Set<string>([
@@ -33,6 +34,7 @@ const ENV_FALLBACK: Record<string, string> = {
   [KEYS.siteName]: process.env.SITE_NAME || 'OptiMedia',
   [KEYS.siteBanner]: process.env.SITE_BANNER || '',
   [KEYS.platformFee]: process.env.PLATFORM_FEE || '0',
+  [KEYS.supportWhatsapp]: process.env.SUPPORT_WHATSAPP || '',
 }
 
 export type SettingSource = 'database' | 'environment' | 'undecryptable' | 'none'
@@ -221,25 +223,35 @@ export interface SiteSettings {
   siteName: string
   siteBanner: string
   platformFee: number
+  supportWhatsapp: string
+}
+
+export function normalizeSupportWhatsapp(value: string): string {
+  const digits = value.replace(/\D/g, '')
+  if (!digits) return ''
+  // Local Nigerian numbers are entered as 0803...; WhatsApp links need 234803...
+  return digits.startsWith('0') ? `234${digits.slice(1)}` : digits
 }
 
 export async function getSiteSettings(): Promise<SiteSettings> {
-  const [siteName, siteBanner, platformFee] = await Promise.all([
+  const [siteName, siteBanner, platformFee, supportWhatsapp] = await Promise.all([
     readValue(KEYS.siteName),
     readValue(KEYS.siteBanner),
     readValue(KEYS.platformFee),
+    readValue(KEYS.supportWhatsapp),
   ])
 
   return {
     siteName: siteName || 'OptiMedia',
     siteBanner,
     platformFee: Math.max(0, Math.floor(Number(platformFee) || 0)),
+    supportWhatsapp: normalizeSupportWhatsapp(supportWhatsapp),
   }
 }
 
 export async function getPublicSiteSettings() {
-  const { siteName, siteBanner, platformFee } = await getSiteSettings()
-  return { siteName, siteBanner, platformFee }
+  const { siteName, siteBanner, platformFee, supportWhatsapp } = await getSiteSettings()
+  return { siteName, siteBanner, platformFee, supportWhatsapp }
 }
 
 export async function getPlatformFee(): Promise<number> {
@@ -250,6 +262,7 @@ export interface UpdateSiteSettingsInput {
   siteName?: string
   siteBanner?: string | null
   platformFee?: number
+  supportWhatsapp?: string | null
 }
 
 export async function updateSiteSettings(input: UpdateSiteSettingsInput) {
@@ -271,6 +284,15 @@ export async function updateSiteSettings(input: UpdateSiteSettingsInput) {
       return { error: 'Platform fee must be a non-negative number' }
     }
     await upsertSetting(KEYS.platformFee, String(Math.floor(fee)))
+  }
+
+  if (input.supportWhatsapp !== undefined) {
+    const normalized = normalizeSupportWhatsapp(String(input.supportWhatsapp || ''))
+    const digits = normalized.replace(/\D/g, '')
+    if (digits && (digits.length < 10 || digits.length > 15)) {
+      return { error: 'Support WhatsApp number must have between 10 and 15 digits' }
+    }
+    await upsertSetting(KEYS.supportWhatsapp, normalized)
   }
 
   return { settings: await getSiteSettings() }

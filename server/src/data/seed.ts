@@ -63,13 +63,13 @@ export async function seedDatabase() {
       create: {
         slug: 'apple',
         name: 'Apple Music',
-        price: 1000,
+        price: 1300,
         icon: 'fa-brands fa-apple',
         bg: '/images/backgrounds/appleMusic.jpg',
         description: 'Lossless audio, spatial audio. Your Own Account, High Quality Audio, Official Activation.',
         features: ['Lossless Audio', 'Spatial Audio', 'Your Own Account', 'Official Activation'],
       },
-      update: {},
+      update: { price: 1300 },
     }),
   ])
 

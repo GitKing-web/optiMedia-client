@@ -28,7 +28,7 @@ const paymentForm = ref({
 })
 const paymentMessage = ref<{ type: 'success' | 'error'; text: string } | null>(null)
 
-const siteForm = ref({ siteName: '', siteBanner: '', platformFee: 0 })
+const siteForm = ref({ siteName: '', siteBanner: '', platformFee: 0, supportWhatsapp: '' })
 const siteMessage = ref<{ type: 'success' | 'error'; text: string } | null>(null)
 
 const accountForm = ref({ email: '', password: '', currentPassword: '' })
@@ -72,6 +72,7 @@ onMounted(async () => {
         siteForm.value.siteName = site.siteName || ''
         siteForm.value.siteBanner = site.siteBanner || ''
         siteForm.value.platformFee = site.platformFee || 0
+        siteForm.value.supportWhatsapp = site.supportWhatsapp || ''
     }
 
     accountForm.value.email = authStore.user?.email || ''
@@ -152,6 +153,7 @@ async function saveSite() {
             siteName: siteForm.value.siteName,
             siteBanner: siteForm.value.siteBanner,
             platformFee: Number(siteForm.value.platformFee) || 0,
+            supportWhatsapp: siteForm.value.supportWhatsapp,
         })
         siteMessage.value = { type: 'success', text: 'Site settings saved.' }
     } catch (e) {
@@ -457,6 +459,17 @@ async function handleLogout() {
                             class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm text-white placeholder-white/30 outline-none focus:border-primary/40" />
                         <p class="text-[11px] text-white/40 mt-2">
                             This flat fee is added on top of the service price at checkout for every order.
+                        </p>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">
+                            Support WhatsApp Number
+                        </label>
+                        <input v-model="siteForm.supportWhatsapp" type="tel" placeholder="+234 801 234 5678"
+                            class="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-4 text-sm text-white placeholder-white/30 outline-none focus:border-primary/40" />
+                        <p class="text-[11px] text-white/40 mt-2">
+                            Shown after a successful payment so customers can message you for their subscription link. Nigerian
+                            numbers starting with 0 are converted automatically.
                         </p>
                     </div>
                 </section>

@@ -2,6 +2,7 @@ import dotenv from 'dotenv'
 dotenv.config()
 
 import app from './src/app.ts'
+import { applyCatalogUpdates } from './src/data/catalog-updates.ts'
 import { seedDatabase } from './src/data/seed.ts'
 import { startReminderScheduler } from './src/services/reminder.service.ts'
 
@@ -12,6 +13,9 @@ try {
 
   app.listen(PORT, () => {
     console.log(`server running on port ${PORT}`)
+    applyCatalogUpdates().catch((error) => {
+      console.error('Catalog update failed:', error)
+    })
     startReminderScheduler()
   })
 } catch (error) {

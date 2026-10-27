@@ -6,14 +6,16 @@ export const useSiteStore = defineStore('site', () => {
     const siteName = ref('OptiMedia')
     const siteBanner = ref('')
     const platformFee = ref(0)
+    const supportWhatsapp = ref('')
     const loaded = ref(false)
 
     async function fetchSite() {
         try {
-            const response = await apiFetch<{ siteName: string; siteBanner: string; platformFee: number }>('/api/site')
+            const response = await apiFetch<{ siteName: string; siteBanner: string; platformFee: number; supportWhatsapp: string }>('/api/site')
             siteName.value = response.siteName || 'OptiMedia'
             siteBanner.value = response.siteBanner || ''
             platformFee.value = Number(response.platformFee) || 0
+            supportWhatsapp.value = response.supportWhatsapp || ''
         } catch {
             // Keep defaults on failure.
         } finally {
@@ -26,5 +28,5 @@ export const useSiteStore = defineStore('site', () => {
         if (siteBannerValue !== undefined) siteBanner.value = siteBannerValue
     }
 
-    return { siteName, siteBanner, platformFee, loaded, fetchSite, applyLocal }
+    return { siteName, siteBanner, platformFee, supportWhatsapp, loaded, fetchSite, applyLocal }
 })
